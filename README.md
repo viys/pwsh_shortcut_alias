@@ -1,95 +1,76 @@
 # pwsh_shortcut_alias
+**Read this in other languages: [English](README.md), [中文](README_zh.md).**
 
-`pwsh_shortcut_alias` 是一个 PowerShell 模块，用于管理快捷方式别名。通过该模块，你可以轻松为常用程序或脚本创建别名，通过别名快速启动对应程序，并支持添加、删除、搜索和更新操作。
+`pwsh_shortcut_alias` is a PowerShell module designed for managing shortcut aliases. With this module, you can easily create aliases for frequently used programs or scripts, launch the corresponding programs quickly via aliases, and it supports **add, delete, search, and update** operations.
 
-项目地址：[pwsh_shortcut_alias](https://github.com/viys/pwsh_shortcut_alias)
+Project Repository: [pwsh_shortcut_alias](https://github.com/viys/pwsh_shortcut_alias)
 
-## 功能特点
+## Features
+- Create shortcut aliases for frequently used programs or scripts
+- Support alias addition, deletion, fuzzy search, and update
+- Alias information is stored in a YAML file, enabling cross-session usage of the module
+- One-click update of all aliases, which are automatically registered as global functions
+- Compatible with PowerShell 7+, relying on the `powershell-yaml` module for YAML file parsing
 
-* 为常用程序或脚本创建快捷方式别名
-* 支持别名添加、删除、搜索（模糊搜索）和更新
-* 别名信息存储在 YAML 文件中，模块可跨会话使用
-* 一键更新所有别名，自动注册为全局函数
-* 支持 PowerShell 7+，依赖 `powershell-yaml` 模块解析 YAML 文件
-
-## 安装
-
-### 自动化
-
-- 安装
-
+## Installation
+### Automatic Installation
+- Install
 ```powershell
 ./build.ps1 install
 ```
-
-- 卸载
-
+- Uninstall
 ```powershell
 ./build.ps1 uninstall
 ```
 
-### 手动安装
-
-1. 将模块文件夹 `pwsh_shortcut_alias` 复制到 PowerShell 模块目录，例如：
-
+### Manual Installation
+1. Copy the module folder `pwsh_shortcut_alias` to the PowerShell module directory. For example:
 ```powershell
 Copy-Item -Path .\pwsh_shortcut_alias -Destination "$HOME\Documents\PowerShell\Modules\" -Recurse -Force
 ```
-
-2. 导入模块：
-
+2. Import the module:
 ```powershell
 Import-Module pwsh_shortcut_alias -Force
 ```
-
-3. 可选：将模块自动加载到 PowerShell profile，方便每次启动时使用：
-
+3. Optional: Configure the module to load automatically in the PowerShell profile for convenient use on every launch:
 ```powershell
-# 使用 notepad $PROFILE 快速编辑
+# Use notepad $PROFILE to edit the profile quickly
 if (-not (Get-Command Use-ShortcutAlias -ErrorAction SilentlyContinue)) {
     Import-Module pwsh_shortcut_alias -ErrorAction Stop
 }
 Use-ShortcutAlias update
 ```
 
-## 使用方法
-
-### 添加别名
-
+## Usage
+### Add Aliases
 ```powershell
 Use-ShortcutAlias add edge "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Microsoft Edge.lnk"
 Use-ShortcutAlias add typora "C:\Program Files\Typora\Typora.exe"
 ```
 
-### 删除别名
-
+### Remove Aliases
 ```powershell
 Use-ShortcutAlias remove edge
 ```
 
-### 搜索别名（模糊搜索）
-
+### Search Aliases (Fuzzy Search)
 ```powershell
 Use-ShortcutAlias search ed
 ```
 
-### 更新所有别名
-
+### Update All Aliases
 ```powershell
 Use-ShortcutAlias update
 ```
 
-### 使用别名启动程序
-
+### Launch Programs via Aliases
 ```powershell
 edge
 typora
 ```
 
-## 配置文件
-
-* 模块在第一次使用时会自动生成 `shortcout_aliases.yaml` 文件，用于存储别名信息：
-
+## Configuration File
+- The module automatically generates a `shortcut_aliases.yaml` file to store alias information upon first use:
 ```yaml
 aliases:
   edge:
@@ -98,37 +79,32 @@ aliases:
     path: "C:\Program Files\Typora\Typora.exe"
 ```
 
-## 依赖
-
-* PowerShell 7+ 或 Windows PowerShell
-* `powershell-yaml` 模块：
-
+## Dependencies
+- PowerShell 7+ or Windows PowerShell
+- `powershell-yaml` module:
 ```powershell
 Install-Module powershell-yaml -Scope CurrentUser
 ```
 
-## 注意事项
+## Notes
+- Alias names must be unique
+- `Use-ShortcutAlias update` registers all aliases in the YAML file as global functions
+- Ensure `Use-ShortcutAlias update` is executed before using aliases, otherwise the corresponding functions may not be registered
 
-* 别名名称必须唯一
-* `Use-ShortcutAlias update` 会将 YAML 文件中所有别名注册为全局函数
-* 使用别名前确保 `Use-ShortcutAlias update` 已执行，否则函数可能未注册
-
-## 示例
-
+## Examples
 ```powershell
-# 添加别名
+# Add an alias
 Use-ShortcutAlias add vscode "C:\Program Files\Microsoft VS Code\Code.exe"
 
-# 使用别名启动程序
+# Launch the program via alias
 vscode
 
-# 删除别名
+# Remove an alias
 Use-ShortcutAlias remove vscode
 
-# 搜索别名
+# Search for aliases
 Use-ShortcutAlias search co
 ```
 
-## 许可证
-
+## License
 MIT License
