@@ -20,24 +20,54 @@ Use-ShortcutAlias update
 
 switch ($Action) {
     "install" {
-        # 将本地所有文件移动到 $pwshPath\Modules\pwsh_shortcut_alias
-        Copy-Item -Path .\* -Destination $pwshPath\Modules\pwsh_shortcut_alias -Recurse -Force -Container
-        # 如果 pwsh_shortcut_alias 已存在，则先卸载
-        if (Get-Module pwsh_shortcut_alias -ErrorAction SilentlyContinue) {
-            Remove-Module pwsh_shortcut_alias -Force
-        }
-        Import-Module "$pwshPath\Modules\pwsh_shortcut_alias\pwsh_shortcut_alias.psd1" -Force
-        # 检查是否已存在 pwsh_shortcut_alias_start 和 pwsh_shortcut_alias_end 是否同时存在
-        $profileContent = Get-Content -Path $PROFILE -Raw
-        if ($profileContent -match "### pwsh_shortcut_alias_start" -and $profileContent -match "### pwsh_shortcut_alias_end") {
-            Write-Warning "pwsh_shortcut_alias already exists in your profile"
-        } else {
-            $profileContent = Get-Content $PROFILE -Raw
-            $profileContent += "`n" + $content  # 用单个换行连接
-            Set-Content -Path $PROFILE -Value $profileContent -Encoding UTF8
-        }
+        try {
+            $dest = Join-Path $pwshPath 'Modules\pwsh_shortcut_alias'
 
-        Get-Command Use-ShortcutAlias
+            # 1. 复制模块文件（失败就直接退出）
+            if (Test-Path $dest) {
+                Remove-Item $dest -Recurse -Force -ErrorAction Stop
+            }
+
+            New-Item -ItemType Directory -Path $dest -Force -ErrorAction Stop | Out-Null
+
+            Copy-Item .\* `
+                -Destination $dest `
+                -Recurse `
+                -Force `
+                -Exclude .git `
+                -ErrorAction Stop
+
+            # 2. 卸载已加载的模块（非致命，但也要可控）
+            if (Get-Module pwsh_shortcut_alias -ErrorAction SilentlyContinue) {
+                Remove-Module pwsh_shortcut_alias -Force -ErrorAction Stop
+            }
+
+            # 3. 导入模块（关键步骤）
+            Import-Module "$dest\pwsh_shortcut_alias.psd1" -Force -ErrorAction Stop
+
+            # 4. 处理 profile 注入
+            if (-not (Test-Path $PROFILE)) {
+                New-Item -ItemType File -Path $PROFILE -Force -ErrorAction Stop | Out-Null
+            }
+
+            $profileContent = Get-Content -Path $PROFILE -Raw -ErrorAction Stop
+
+            if (
+                $profileContent -match '### pwsh_shortcut_alias_start' -and
+                $profileContent -match '### pwsh_shortcut_alias_end'
+            ) {
+                Write-Warning "pwsh_shortcut_alias already exists in your profile"
+            } else {
+                $profileContent += "`n$content"
+                Set-Content -Path $PROFILE -Value $profileContent -Encoding UTF8 -ErrorAction Stop
+            }
+
+            # 5. 最终验证
+            Get-Command Use-ShortcutAlias -ErrorAction Stop
+        } catch {
+                Write-Error "Install failed: $($_.Exception.Message)"
+                return
+        }
     }
     "uninstall" {
         # 从 $PROFILE 中删除 pwsh_shortcut_alias_start 和 pwsh_shortcut_alias_end 之间的内容
