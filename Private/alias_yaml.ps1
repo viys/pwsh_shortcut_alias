@@ -4,7 +4,11 @@
 #   wechat:
 #     path: "C:\Program Files (x86)\Tencent\WeChat\WeChat.exe"
 
-Install-Module powershell-yaml -Scope CurrentUser
+# Install-Module powershell-yaml -Scope CurrentUser
+
+if (-not (Get-Command ConvertFrom-Yaml -ErrorAction SilentlyContinue)) {
+        Import-Module powershell-yaml -ErrorAction Stop
+}
 function Initialize-AliasYaml {
     param (
         [Parameter(Mandatory)]
@@ -128,4 +132,4 @@ function Remove-AliasPath {
     Write-AliasYaml -Data $data -Path $Path
 }
 
-Import-Module powershell-yaml -ErrorAction Stop
+# Import-Module powershell-yaml -ErrorAction Stop
