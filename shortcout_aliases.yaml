@@ -1,0 +1,6 @@
+aliases:
+  wechat:
+    path: C:\ProgramData\Microsoft\Windows\Start Menu\Programs\微信\微信.lnk
+  test:
+    path: C:\Users\viys\workspace\github\pwsh_shortcut_alias\test_shortcut_path
+

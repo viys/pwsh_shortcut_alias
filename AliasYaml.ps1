@@ -1,11 +1,10 @@
 # aliases:
-#   build:
-#     path: ./scripts/build.ps1
-#   flash:
-#     path: ./scripts/flash.ps1
-#   monitor:
-#     path: ./scripts/monitor.ps1
+#   typora:
+#     path: "C:\Program Files\Typora\Typora.exe"
+#   wechat:
+#     path: "C:\Program Files (x86)\Tencent\WeChat\WeChat.exe"
 
+Install-Module powershell-yaml -Scope CurrentUser
 function Initialize-AliasYaml {
     param (
         [Parameter(Mandatory)]
@@ -18,9 +17,9 @@ function Initialize-AliasYaml {
             New-Item -ItemType Directory -Path $dir -Force | Out-Null
         }
 
-        @"
-aliases:
-"@ | Set-Content -Path $Path -Encoding UTF8
+        @{
+            aliases = @{}
+        } | ConvertTo-Yaml | Set-Content -Path $Path -Encoding UTF8
     }
 }
 
@@ -30,92 +29,103 @@ function Read-AliasYaml {
         [string]$Path
     )
 
-    Initialize-AliasYaml $Path
-
-    $content = Get-Content $Path -Raw
-    if (-not $content.Trim()) {
-        return @{ aliases = @{} }
+    if (-not (Test-Path $Path)) {
+        return @{}
     }
 
-    ConvertFrom-Yaml $content
+    if (-not (Get-Command ConvertFrom-Yaml -ErrorAction SilentlyContinue)) {
+        throw "ConvertFrom-Yaml not found. Use PowerShell 7+ or install powershell-yaml."
+    }
+
+    $data = Get-Content $Path -Raw | ConvertFrom-Yaml
+
+    if (-not $data -or -not $data.aliases) {
+        return @{}
+    }
+
+    $result = @{}
+
+    foreach ($name in $data.aliases.Keys) {
+        $entry = $data.aliases[$name]
+
+        if ($entry.path) {
+            $result[$name] = $entry.path
+        }
+    }
+
+    return $result
 }
-
-# function Write-AliasYaml {
-#     param (
-#         [Parameter(Mandatory)]
-#         [string]$Path,
-
-#         [Parameter(Mandatory)]
-#         [string]$Alias,
-
-#         [Parameter(Mandatory)]
-#         [string]$ShortcutPath
-#     )
-
-#     $yaml = $Alias | ConvertTo-Yaml
-#     Set-Content -Path $Path -Value $yaml -Encoding UTF8
-# }
 
 function Write-AliasYaml {
     param (
         [Parameter(Mandatory)]
-        [string]$Path,
+        [hashtable]$Data,
 
         [Parameter(Mandatory)]
-        [hashtable]$Config
+        [string]$Path
     )
 
-    $yaml = $Config | ConvertTo-Yaml
-    Set-Content -Path $Path -Value $yaml -Encoding UTF8
+    $Data | ConvertTo-Yaml | Set-Content -Path $Path -Encoding UTF8
 }
 
+function Add-AliasPath {
+    param (
+        [Parameter(Mandatory)]
+        [string]$Path,          # aliaspath.yaml
 
-function Set-AliasEntry {
+        [Parameter(Mandatory)]
+        [string]$AliasName,     # build / flash / monitor
+
+        [Parameter(Mandatory)]
+        [string]$ShortcutPath  # ./scripts/build.ps1
+    )
+
+    Initialize-AliasYaml -Path $Path
+
+    $data = Get-Content $Path -Raw | ConvertFrom-Yaml
+
+    if (-not $data.aliases) {
+        $data.aliases = @{}
+    }
+
+    # 核心语义：alias → path
+    $data.aliases[$AliasName] = @{
+        path = $ShortcutPath
+    }
+
+    Write-AliasYaml -Data $data -Path $Path
+}
+
+function Remove-AliasPath {
     param (
         [Parameter(Mandatory)]
         [string]$Path,
 
         [Parameter(Mandatory)]
-        [string]$Name,
-
-        [Parameter(Mandatory)]
-        [string]$TargetPath,
-
-        [string]$Description
+        [string]$AliasName
     )
 
-    $cfg = Read-AliasYaml $Path
-
-    if (-not $cfg.aliases) {
-        $cfg | Add-Member -MemberType NoteProperty -Name aliases -Value @{}
+    if (-not (Test-Path $Path)) {
+        return
     }
 
-    $entry = @{
-        path = $TargetPath
+    if (-not (Get-Command ConvertFrom-Yaml -ErrorAction SilentlyContinue)) {
+        throw "ConvertFrom-Yaml not found. Use PowerShell 7+ or install powershell-yaml."
     }
 
-    if ($Description) {
-        $entry.desc = $Description
+    $data = Get-Content $Path -Raw | ConvertFrom-Yaml
+
+    if (-not $data -or -not $data.aliases) {
+        return
     }
 
-    $cfg.aliases[$Name] = $entry
+    if (-not $data.aliases.ContainsKey($AliasName)) {
+        return
+    }
 
-    Write-AliasYaml $Path $cfg
+    $data.aliases.Remove($AliasName) | Out-Null
+
+    Write-AliasYaml -Data $data -Path $Path
 }
 
-function Remove-AliasEntry {
-    param (
-        [Parameter(Mandatory)]
-        [string]$Path,
-
-        [Parameter(Mandatory)]
-        [string]$Name
-    )
-
-    $cfg = Read-AliasYaml $Path
-
-    if ($cfg.aliases -and $cfg.aliases.ContainsKey($Name)) {
-        $cfg.aliases.Remove($Name)
-        Write-AliasYaml $Path $cfg
-    }
-}
+Import-Module powershell-yaml -ErrorAction Stop

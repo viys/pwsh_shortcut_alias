@@ -15,7 +15,7 @@ param (
 
 . .\AliasYaml.ps1
 
-$YamlCfgPath = ".\aliases.yaml"
+$YamlCfgPath = ".\shortcout_aliases.yaml"
 
 Initialize-AliasYaml -Path $YamlCfgPath
 
@@ -35,7 +35,7 @@ function Add-ShortcutAlias {
 
     if (Test-Path -Path $ShortcutPath) {
         $ShortcutPath = Resolve-Path $ShortcutPath
-        Set-AliasEntry -Path $YamlCfgPath -Name $AliasName -TargetPath $ShortcutPath
+        Add-AliasPath -Path $YamlCfgPath -AliasName $AliasName -ShortcutPath $ShortcutPath
     } else {
         Write-Host -Message "$ShortcutPath does not exist" -ForegroundColor Red
     }
@@ -69,6 +69,20 @@ function Update-ShortcutAlias {
         $AliasName,
         $ShortcutPath
     )
+
+    $aliases = Read-AliasYaml -Path $YamlCfgPath
+
+    foreach ($name in $aliases.Keys) {
+        $target = $aliases[$name]
+        if (-not (Test-Path $target)) {
+            Write-Warning "Target not found: $target"
+            continue
+        }
+        $fullPath = (Resolve-Path $target).Path
+        Write-Host -Message "$name -> $fullPath"
+
+        Set-Alias -Name $name -Value $fullPath
+    }
 }
 
 switch ($Action) {
@@ -92,3 +106,5 @@ switch ($Action) {
     }
     Default {}
 }
+
+Update-ShortcutAlias -Path $YamlCfgPath
