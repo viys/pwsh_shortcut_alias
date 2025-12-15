@@ -1,18 +1,3 @@
-param (
-    [Parameter(
-        Position = 0,
-        Mandatory
-    )]
-    [ValidateSet("add", "remove", "list", "search", "update")]
-    [string]$Action,
-
-    [Parameter(Position = 1)]
-    [string]$AliasName,
-
-    [Parameter(Position = 2)]
-    [string]$ShortcutPath
-)
-
 . .\AliasYaml.ps1
 
 $YamlCfgPath = ".\shortcout_aliases.yaml"
@@ -117,5 +102,3 @@ function Update-ShortcutAlias {
         Set-Alias -Name $name -Value $fullPath
     }
 }
-
-Use-ShortcutAlias -Action $Action -AliasName $AliasName -ShortcutPath $ShortcutPath
