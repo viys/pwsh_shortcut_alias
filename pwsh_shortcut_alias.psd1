@@ -2,7 +2,7 @@
     RootModule        = 'pwsh_shortcut_alias.psm1'
     ModuleVersion     = '0.1.0'
 
-    GUID              = 'e3b6c7c0-4b7e-4f1c-9e91-xxxxxxxxxxxx'
+    GUID              = 'e3b6c7c0-4b7e-4f1c-9e91-4b7e4f1c9e91'
 
     Author            = 'viys'
     CompanyName       = 'Community'
