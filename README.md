@@ -2,6 +2,8 @@
 
 `pwsh_shortcut_alias` 是一个 PowerShell 模块，用于管理快捷方式别名。通过该模块，你可以轻松为常用程序或脚本创建别名，通过别名快速启动对应程序，并支持添加、删除、搜索和更新操作。
 
+项目地址：[pwsh_shortcut_alias](https://github.com/viys/pwsh_shortcut_alias)
+
 ## 功能特点
 
 * 为常用程序或脚本创建快捷方式别名
@@ -11,6 +13,22 @@
 * 支持 PowerShell 7+，依赖 `powershell-yaml` 模块解析 YAML 文件
 
 ## 安装
+
+### 自动化
+
+- 安装
+
+```powershell
+./build.ps1 install
+```
+
+- 卸载
+
+```powershell
+./build.ps1 uninstall
+```
+
+### 手动安装
 
 1. 将模块文件夹 `pwsh_shortcut_alias` 复制到 PowerShell 模块目录，例如：
 
@@ -27,10 +45,11 @@ Import-Module pwsh_shortcut_alias -Force
 3. 可选：将模块自动加载到 PowerShell profile，方便每次启动时使用：
 
 ```powershell
+# 使用 notepad $PROFILE 快速编辑
 if (-not (Get-Command Use-ShortcutAlias -ErrorAction SilentlyContinue)) {
     Import-Module pwsh_shortcut_alias -ErrorAction Stop
-    Use-ShortcutAlias update
 }
+Use-ShortcutAlias update
 ```
 
 ## 使用方法
