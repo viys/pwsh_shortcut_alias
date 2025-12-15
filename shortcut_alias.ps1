@@ -3,7 +3,7 @@ param (
         Position = 0,
         Mandatory
     )]
-    [ValidateSet("add", "remove", "list", "switch", "search", "update")]
+    [ValidateSet("add", "remove", "list", "search", "update")]
     [string]$Action,
 
     [Parameter(Position = 1)]
@@ -19,8 +19,41 @@ $YamlCfgPath = ".\shortcout_aliases.yaml"
 
 Initialize-AliasYaml -Path $YamlCfgPath
 
-# function Use-ShortcutAlias {
-# }
+function Use-ShortcutAlias {
+    param (
+        [Parameter(
+            Position = 0,
+            Mandatory
+        )]
+        [ValidateSet("add", "remove", "list", "search", "update")]
+        [string]$Action,
+
+        [Parameter(Position = 1)]
+        [string]$AliasName,
+
+        [Parameter(Position = 2)]
+        [string]$ShortcutPath
+    )
+
+    switch ($Action) {
+        "add" {
+            Add-ShortcutAlias -AliasName $AliasName -ShortcutPath $ShortcutPath
+        }
+        "remove" {
+            Remove-ShortcutAlias -AliasName $AliasName
+        }
+        "list" {
+            Show-ShortcutAlias -AliasName $AliasName
+        }
+        "search" {
+            Search-ShortcutAlias -AliasName $AliasName
+        }
+        "update" {
+            Update-ShortcutAlias -Path $YamlCfgPath
+        }
+        Default {}
+    }
+}
 
 function Add-ShortcutAlias {
     param (
@@ -85,26 +118,4 @@ function Update-ShortcutAlias {
     }
 }
 
-switch ($Action) {
-    "add" {
-        Add-ShortcutAlias -AliasName $AliasName -ShortcutPath $ShortcutPath
-    }
-    "remove" {
-        Remove-ShortcutAlias -AliasName $AliasName
-    }
-    "list" {
-        Show-ShortcutAlias -AliasName $AliasName
-    }
-    "switch" {
-        Switch-ShortcutAlias -AliasName $AliasName
-    }
-    "search" {
-        Search-ShortcutAlias -AliasName $AliasName
-    }
-    "update" {
-        Update-ShortcutAlias
-    }
-    Default {}
-}
-
-Update-ShortcutAlias -Path $YamlCfgPath
+Use-ShortcutAlias -Action $Action -AliasName $AliasName -ShortcutPath $ShortcutPath
