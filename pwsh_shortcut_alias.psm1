@@ -182,15 +182,12 @@ function Update-ShortcutAlias {
         }
 
         try {
-            $fullPath = (Resolve-Path $target).Path
-
             $scriptBlock = {
-                param($args)
-                explorer.exe $args[0]
+                explorer.exe $target
             }.GetNewClosure()
 
             Set-Item -Path "Function:\Global:$name" -Value $scriptBlock -ErrorAction Stop
-            Write-Verbose "Updated $name -> $fullPath"
+            Write-Verbose "Updated $name -> $target"
             $updatedCount++
         }
         catch {
