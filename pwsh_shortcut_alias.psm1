@@ -130,7 +130,8 @@ function Update-ShortcutAlias {
 
         $sb = {
             param($args)
-            Start-Process $path -ArgumentList $args
+            # Start-Process $path -ArgumentList $args
+            explorer.exe $path
         }.GetNewClosure()
 
         Set-Item -Path "Function:\Global:$name" -Value $sb
