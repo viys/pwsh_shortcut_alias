@@ -22,8 +22,6 @@ function Use-ShortcutAlias {
         [string]$ShortcutPath
     )
 
-    Initialize-AliasYaml -Path $YamlCfgPath
-
     switch ($Action) {
         "add" {
             Add-ShortcutAlias -AliasName $AliasName -ShortcutPath $ShortcutPath
@@ -35,7 +33,7 @@ function Use-ShortcutAlias {
             Search-ShortcutAlias -AliasName $AliasName
         }
         "update" {
-            Update-ShortcutAlias -Path $YamlCfgPath
+            Update-ShortcutAlias
         }
         Default {}
     }
@@ -55,10 +53,25 @@ function Add-ShortcutAlias {
     if (Test-Path -Path $ShortcutPath) {
         $ShortcutPath = Resolve-Path $ShortcutPath
         Add-AliasPath -Path $YamlCfgPath -AliasName $AliasName -ShortcutPath $ShortcutPath
+
+        # 读取 YAML，获取顶层的 aliases 节点
+        $yamlContent = Get-Content -Path $YamlCfgPath -Raw | ConvertFrom-Yaml
+        $aliases = $yamlContent.aliases  # 取出 aliases 下的所有别名（哈希表）
+
+        # 按 Key 升序排序，转为有序哈希表
+        $sortedAliases = $aliases.GetEnumerator() | Sort-Object -Property Key
+        $sortedHash = [ordered]@{}
+        foreach ($item in $sortedAliases) {
+            # 保留 path 字段
+            $sortedHash[$item.Key] = $item.Value
+        }
+
+        # 重新构建 YAML 结构并写入文件
+        $yamlContent.aliases = $sortedHash  # 替换为排序后的 aliases
+        $yamlContent | ConvertTo-Yaml | Out-File -Path $YamlCfgPath -Encoding utf8
     } else {
         Write-Host -Message "$ShortcutPath does not exist" -ForegroundColor Red
     }
-
 }
 
 function Remove-ShortcutAlias {
@@ -92,19 +105,38 @@ function Search-ShortcutAlias {
 
     $aliases = Read-AliasYaml -Path $YamlCfgPath
 
+    # 不带参数，列出全部
     if (-not $AliasName) {
-        # 不带参数，列出全部
+        # 获取所有key的最大长度（核心基准）
+        $maxKeyLength = ($aliases.Keys | Measure-Object -Property Length -Maximum).Maximum
+
         foreach ($key in $aliases.Keys) {
-            Write-Host "$key -> $($aliases[$key])"
+            # 计算需要补充的空格数：最大长度 - 当前key长度 + 2（额外留2个空格间距）
+            $spaceCount = $maxKeyLength - $key.Length + 2
+            # 生成空格字符串（彻底替代Tab）
+            $spaces = " " * $spaceCount
+
+            # 输出：key + 补齐空格 + -> + 路径
+            Write-Host "$key$spaces" -ForegroundColor Green -NoNewline
+            Write-Host "-> " -ForegroundColor DarkGray -NoNewline
+            Write-Host "$($aliases[$key])"
         }
         return
     }
 
     # 支持模糊搜索
     $found = $false
-    foreach ($key in $aliases.Keys) {
-        if ($key -like "*$AliasName*") {
-            Write-Host "$key -> $($aliases[$key])"
+    $matchingKeys = $aliases.Keys | Where-Object { $_ -like "*$AliasName*" }
+    if ($matchingKeys) {
+        $maxKeyLength = ($matchingKeys | Measure-Object -Property Length -Maximum).Maximum
+
+        foreach ($key in $matchingKeys) {
+            $spaceCount = $maxKeyLength - $key.Length + 2
+            $spaces = " " * $spaceCount
+
+            Write-Host "$key$spaces" -ForegroundColor Green -NoNewline
+            Write-Host "-> " -ForegroundColor DarkGray -NoNewline
+            Write-Host "$($aliases[$key])"
             $found = $true
         }
     }
@@ -117,6 +149,9 @@ function Search-ShortcutAlias {
 function Update-ShortcutAlias {
     $aliases = Read-AliasYaml -Path $YamlCfgPath
 
+    # 获取所有别名的最大长度（用于对齐）
+    $maxNameLength = ($aliases.Keys | Measure-Object -Property Length -Maximum).Maximum
+
     foreach ($name in $aliases.Keys) {
         $target = $aliases[$name]
         if (-not (Test-Path $target)) {
@@ -124,7 +159,10 @@ function Update-ShortcutAlias {
             continue
         }
         $fullPath = (Resolve-Path $target).Path
-        Write-Verbose -Message "$name -> $fullPath"
+
+        # 计算空格并补齐并输出
+        $spaces = " " * ($maxNameLength - $name.Length + 2)
+        Write-Verbose -Message "$name$spaces-> $fullPath"
 
         $path = $fullPath  # 冻结当前循环的值
 

@@ -56,8 +56,6 @@ function Use-ShortcutAlias {
         [string]$ShortcutPath
     )
 
-    Initialize-AliasYaml -Path $YamlCfgPath
-
     switch ($Action) {
         "add" {
             Add-ShortcutAlias -AliasName $AliasName -ShortcutPath $ShortcutPath

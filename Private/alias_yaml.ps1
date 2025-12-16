@@ -75,13 +75,13 @@ function Write-AliasYaml {
 function Add-AliasPath {
     param (
         [Parameter(Mandatory)]
-        [string]$Path,          # aliaspath.yaml
+        [string]$Path,
 
         [Parameter(Mandatory)]
-        [string]$AliasName,     # build / flash / monitor
+        [string]$AliasName,
 
         [Parameter(Mandatory)]
-        [string]$ShortcutPath  # ./scripts/build.ps1
+        [string]$ShortcutPath
     )
 
     Initialize-AliasYaml -Path $Path
