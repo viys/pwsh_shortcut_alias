@@ -53,22 +53,6 @@ function Add-ShortcutAlias {
     if (Test-Path -Path $ShortcutPath) {
         $ShortcutPath = Resolve-Path $ShortcutPath
         Add-AliasPath -Path $YamlCfgPath -AliasName $AliasName -ShortcutPath $ShortcutPath
-
-        # 读取 YAML，获取顶层的 aliases 节点
-        $yamlContent = Get-Content -Path $YamlCfgPath -Raw | ConvertFrom-Yaml
-        $aliases = $yamlContent.aliases  # 取出 aliases 下的所有别名（哈希表）
-
-        # 按 Key 升序排序，转为有序哈希表
-        $sortedAliases = $aliases.GetEnumerator() | Sort-Object -Property Key
-        $sortedHash = [ordered]@{}
-        foreach ($item in $sortedAliases) {
-            # 保留 path 字段
-            $sortedHash[$item.Key] = $item.Value
-        }
-
-        # 重新构建 YAML 结构并写入文件
-        $yamlContent.aliases = $sortedHash  # 替换为排序后的 aliases
-        $yamlContent | ConvertTo-Yaml | Out-File -Path $YamlCfgPath -Encoding utf8
     } else {
         Write-Host -Message "$ShortcutPath does not exist" -ForegroundColor Red
     }
@@ -83,7 +67,15 @@ function Remove-ShortcutAlias {
 
     $aliases = Read-AliasYaml -Path $YamlCfgPath
 
-    if (-not $aliases.ContainsKey($AliasName)) {
+    $aliasExists = $false
+    if ($aliases -is [System.Collections.Specialized.OrderedDictionary]) {
+        $aliasExists = $aliases.Contains($AliasName)
+    }
+    elseif ($aliases -is [hashtable]) {
+        $aliasExists = $aliases.ContainsKey($AliasName)
+    }
+
+    if (-not $aliasExists) {
         Write-Host "Alias '$AliasName' not found" -ForegroundColor Red
         return
     }
@@ -91,7 +83,7 @@ function Remove-ShortcutAlias {
     Remove-AliasPath -Path $YamlCfgPath -AliasName $AliasName
     # 同步移除全局函数
     if (Get-Command $AliasName -ErrorAction SilentlyContinue) {
-        Remove-Item -Path "Function:\Global:$AliasName"
+        Remove-Item -Path "Function:\Global:$AliasName" -ErrorAction SilentlyContinue
     }
 
     Write-Host "Alias '$AliasName' removed successfully" -ForegroundColor Green
