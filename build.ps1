@@ -25,7 +25,7 @@ switch ($Action) {
 
             # 1. 复制模块文件（失败就直接退出）
             if (Test-Path $dest) {
-                Remove-Item $dest -Recurse -Force -ErrorAction Stop
+                # Remove-Item $dest -Recurse -Force -ErrorAction Stop
             }
 
             New-Item -ItemType Directory -Path $dest -Force -ErrorAction Stop | Out-Null
@@ -34,7 +34,7 @@ switch ($Action) {
                 -Destination $dest `
                 -Recurse `
                 -Force `
-                -Exclude .git `
+                -Exclude '.git','.gitignore','shortcut_aliases.yaml' `
                 -ErrorAction Stop
 
             # 2. 卸载已加载的模块（非致命，但也要可控）
