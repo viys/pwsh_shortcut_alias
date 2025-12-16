@@ -1,24 +1,69 @@
 $ModuleRoot = $PSScriptRoot
+$YamlCfgPath = Join-Path $ModuleRoot 'shortcout_aliases.yaml'
 
 # 加载私有实现
 . "$ModuleRoot\Private\alias_yaml.ps1"
 
-# 模块级配置（绝对路径）
-$YamlCfgPath = Join-Path $ModuleRoot 'shortcout_aliases.yaml'
+# 私有通用函数：判断键是否存在（兼容OrderedDictionary/Hashtable）
+function Test-AliasKeyExists {
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory, ValueFromPipeline)]
+        [object]$Dictionary,
+
+        [Parameter(Mandatory)]
+        [string]$Key
+    )
+    process {
+        if ($Dictionary -is [System.Collections.Specialized.OrderedDictionary]) {
+            return $Dictionary.Contains($Key)
+        }
+        elseif ($Dictionary -is [hashtable]) {
+            return $Dictionary.ContainsKey($Key)
+        }
+        return $false
+    }
+}
+
+# 私有通用函数：格式化别名输出（复用逻辑）
+function Format-AliasOutput {
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory)]
+        [object]$Aliases,
+
+        [Parameter()]
+        [string]$Filter = "*"
+    )
+    $matchingKeys = $Aliases.Keys | Where-Object { $_ -like $Filter }
+    if (-not $matchingKeys) { return $null }
+
+    $maxKeyLength = ($matchingKeys | Measure-Object -Property Length -Maximum).Maximum
+    foreach ($key in $matchingKeys) {
+        $spaceCount = $maxKeyLength - $key.Length + 2
+        [PSCustomObject]@{
+            Name    = $key
+            Spaces  = " " * $spaceCount
+            Path    = $Aliases[$key]
+            MaxLength = $maxKeyLength
+        }
+    }
+}
 
 function Use-ShortcutAlias {
+    [CmdletBinding(DefaultParameterSetName = "Default")]
+    [Alias("usa")] # 添加别名，方便快速调用
     param (
-        [Parameter(
-            Position = 0,
-            Mandatory
-        )]
+        [Parameter(Position = 0, Mandatory)]
         [ValidateSet("add", "remove", "search", "update")]
         [string]$Action,
 
         [Parameter(Position = 1)]
+        [ValidatePattern('^[a-zA-Z0-9_]+$')] # 限制别名仅含字母/数字/下划线
         [string]$AliasName,
 
         [Parameter(Position = 2)]
+        [ValidateScript({ Test-Path $_ -PathType Leaf })] # 提前验证路径存在
         [string]$ShortcutPath
     )
 
@@ -30,142 +75,130 @@ function Use-ShortcutAlias {
             Remove-ShortcutAlias -AliasName $AliasName
         }
         "search" {
-            Search-ShortcutAlias -AliasName $AliasName
+             Search-ShortcutAlias -AliasName $AliasName
         }
         "update" {
             Update-ShortcutAlias
         }
-        Default {}
     }
 }
 
 function Add-ShortcutAlias {
+    [CmdletBinding()]
     param (
         [Parameter(Mandatory)]
-        $AliasName,
+        [ValidatePattern('^[a-zA-Z0-9_]+$')]
+        [string]$AliasName,
 
         [Parameter(Mandatory)]
-        $ShortcutPath
+        [string]$ShortcutPath
     )
 
-    Write-Verbose -Message "Attempting to add alias $AliasName with shortcut path $ShortcutPath"
+    Write-Verbose "Attempting to add alias '$AliasName' with path '$ShortcutPath'"
 
-    if (Test-Path -Path $ShortcutPath) {
-        $ShortcutPath = Resolve-Path $ShortcutPath
-        Add-AliasPath -Path $YamlCfgPath -AliasName $AliasName -ShortcutPath $ShortcutPath
-    } else {
-        Write-Host -Message "$ShortcutPath does not exist" -ForegroundColor Red
+    try {
+        $resolvedPath = Resolve-Path $ShortcutPath -ErrorAction Stop
+        Add-AliasPath -Path $YamlCfgPath -AliasName $AliasName -ShortcutPath $resolvedPath.Path
+        Write-Host "Alias '$AliasName' added successfully -> $($resolvedPath.Path)" -ForegroundColor Green
+    }
+    catch {
+        Write-Host "Failed to add alias: $($_.Exception.Message)" -ForegroundColor Red
     }
 }
 
 function Remove-ShortcutAlias {
-    # 必须严格按照存储的 AliasName 删除，如果没有查询到则提示错误
+    [CmdletBinding()]
     param (
         [Parameter(Mandatory)]
         [string]$AliasName
     )
 
     $aliases = Read-AliasYaml -Path $YamlCfgPath
-
-    $aliasExists = $false
-    if ($aliases -is [System.Collections.Specialized.OrderedDictionary]) {
-        $aliasExists = $aliases.Contains($AliasName)
-    }
-    elseif ($aliases -is [hashtable]) {
-        $aliasExists = $aliases.ContainsKey($AliasName)
-    }
-
-    if (-not $aliasExists) {
+    if (-not (Test-AliasKeyExists -Dictionary $aliases -Key $AliasName)) {
         Write-Host "Alias '$AliasName' not found" -ForegroundColor Red
         return
     }
 
-    Remove-AliasPath -Path $YamlCfgPath -AliasName $AliasName
-    # 同步移除全局函数
-    if (Get-Command $AliasName -ErrorAction SilentlyContinue) {
-        Remove-Item -Path "Function:\Global:$AliasName" -ErrorAction SilentlyContinue
-    }
+    try {
+        Remove-AliasPath -Path $YamlCfgPath -AliasName $AliasName
 
-    Write-Host "Alias '$AliasName' removed successfully" -ForegroundColor Green
+        # 同步移除全局函数
+        $funcPath = "Function:\Global:$AliasName"
+        if (Test-Path $funcPath) {
+            Remove-Item -Path $funcPath -ErrorAction Stop
+            Write-Verbose "Removed global function: $AliasName"
+        }
+
+        Write-Host "Alias '$AliasName' removed successfully" -ForegroundColor Green
+    }
+    catch {
+        Write-Host "Failed to remove alias: $($_.Exception.Message)" -ForegroundColor Red
+    }
 }
 
 function Search-ShortcutAlias {
-    # 当 AliasName 为空时，列出所有别名，支持模糊搜索
+    [CmdletBinding()]
     param (
-        [string]$AliasName
+        [Parameter(Position = 0)]
+        [string]$AliasName = "*" # 默认模糊匹配所有
     )
 
     $aliases = Read-AliasYaml -Path $YamlCfgPath
+    $formattedOutput = Format-AliasOutput -Aliases $aliases -Filter "*$AliasName*"
 
-    # 不带参数，列出全部
-    if (-not $AliasName) {
-        # 获取所有key的最大长度（核心基准）
-        $maxKeyLength = ($aliases.Keys | Measure-Object -Property Length -Maximum).Maximum
-
-        foreach ($key in $aliases.Keys) {
-            # 计算需要补充的空格数：最大长度 - 当前key长度 + 2（额外留2个空格间距）
-            $spaceCount = $maxKeyLength - $key.Length + 2
-            # 生成空格字符串（彻底替代Tab）
-            $spaces = " " * $spaceCount
-
-            # 输出：key + 补齐空格 + -> + 路径
-            Write-Host "$key$spaces" -ForegroundColor Green -NoNewline
-            Write-Host "-> " -ForegroundColor DarkGray -NoNewline
-            Write-Host "$($aliases[$key])"
-        }
+    if (-not $formattedOutput) {
+        Write-Host "No alias matching '$AliasName' found" -ForegroundColor Yellow
         return
     }
 
-    # 支持模糊搜索
-    $found = $false
-    $matchingKeys = $aliases.Keys | Where-Object { $_ -like "*$AliasName*" }
-    if ($matchingKeys) {
-        $maxKeyLength = ($matchingKeys | Measure-Object -Property Length -Maximum).Maximum
-
-        foreach ($key in $matchingKeys) {
-            $spaceCount = $maxKeyLength - $key.Length + 2
-            $spaces = " " * $spaceCount
-
-            Write-Host "$key$spaces" -ForegroundColor Green -NoNewline
-            Write-Host "-> " -ForegroundColor DarkGray -NoNewline
-            Write-Host "$($aliases[$key])"
-            $found = $true
-        }
-    }
-
-    if (-not $found) {
-        Write-Host "No alias matching '$AliasName' found" -ForegroundColor Yellow
+    # 统一输出格式
+    foreach ($item in $formattedOutput) {
+        Write-Host "$($item.Name)$($item.Spaces)" -ForegroundColor Green -NoNewline
+        Write-Host "-> " -ForegroundColor DarkGray -NoNewline
+        Write-Host $item.Path
     }
 }
 
 function Update-ShortcutAlias {
+    [CmdletBinding()]
+    param ()
+
     $aliases = Read-AliasYaml -Path $YamlCfgPath
+    if (-not $aliases.Keys) {
+        Write-Verbose "No aliases found to update"
+        return
+    }
 
-    # 获取所有别名的最大长度（用于对齐）
-    $maxNameLength = ($aliases.Keys | Measure-Object -Property Length -Maximum).Maximum
+    $formattedOutput = Format-AliasOutput -Aliases $aliases
+    $updatedCount = 0
 
-    foreach ($name in $aliases.Keys) {
-        $target = $aliases[$name]
+    foreach ($item in $formattedOutput) {
+        $name = $item.Name
+        $target = $item.Path
+
         if (-not (Test-Path $target)) {
-            Write-Warning "Target not found: $target"
+            Write-Warning "Target path not found for alias '$name': $target"
             continue
         }
-        $fullPath = (Resolve-Path $target).Path
 
-        # 计算空格并补齐并输出
-        $spaces = " " * ($maxNameLength - $name.Length + 2)
-        Write-Verbose -Message "$name$spaces-> $fullPath"
+        try {
+            $fullPath = (Resolve-Path $target).Path
 
-        $path = $fullPath  # 冻结当前循环的值
+            $scriptBlock = {
+                param($args)
+                explorer.exe $args[0]
+            }.GetNewClosure()
 
-        $sb = {
-            param($args)
-            # Start-Process $path -ArgumentList $args
-            explorer.exe $path
-        }.GetNewClosure()
-
-        Set-Item -Path "Function:\Global:$name" -Value $sb
+            Set-Item -Path "Function:\Global:$name" -Value $scriptBlock -ErrorAction Stop
+            Write-Verbose "Updated $name -> $fullPath"
+            $updatedCount++
+        }
+        catch {
+            Write-Warning "Failed to update alias '$name': $($_.Exception.Message)"
+        }
     }
+
+    Write-Host "Updated $updatedCount/$($aliases.Keys.Count) aliases successfully" -ForegroundColor Green
 }
 
-Export-ModuleMember -Function Use-ShortcutAlias
+Export-ModuleMember -Function Use-ShortcutAlias -Alias usa

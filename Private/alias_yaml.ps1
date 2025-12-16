@@ -4,14 +4,14 @@
 #   wechat:
 #     path: "C:\Program Files (x86)\Tencent\WeChat\WeChat.exe"
 
-# 全局模块导入：优化重复导入+失败处理
+# 全局模块导入
 if (-not (Get-Command ConvertFrom-Yaml -ErrorAction SilentlyContinue)) {
     try {
         Import-Module powershell-yaml -ErrorAction Stop
-        Write-Verbose "成功导入 powershell-yaml 模块"
+        Write-Verbose "Successfully imported powershell-yaml module"
     }
     catch {
-        throw "导入 powershell-yaml 模块失败，请先执行：Install-Module powershell-yaml -Scope CurrentUser -Force"
+        throw "Failed to import powershell-yaml module. Please run: Install-Module powershell-yaml -Scope CurrentUser -Force"
     }
 }
 
@@ -30,7 +30,7 @@ function Initialize-AliasYaml {
         [ordered]@{
             aliases = [ordered]@{}
         } | ConvertTo-Yaml | Set-Content -Path $Path -Encoding UTF8
-        Write-Verbose "初始化 YAML 配置文件：$Path"
+        Write-Verbose "Initialized YAML configuration file: $Path"
     }
 }
 
@@ -49,7 +49,7 @@ function Read-AliasYaml {
         $data = Get-Content $Path -Raw | ConvertFrom-Yaml -Ordered
     }
     catch {
-        throw "解析 YAML 文件失败：$Path`n错误详情：$_"
+        throw "Failed to parse YAML file: $Path`nError details: $_"
     }
 
     if (-not $data -or -not $data.aliases) {
@@ -99,10 +99,10 @@ function Write-AliasYaml {
     # 保留：无 -Ordered，依赖有序哈希表保序
     try {
         $sortedOrderedData | ConvertTo-Yaml | Set-Content -Path $Path -Encoding UTF8 -Force
-        Write-Verbose "成功写入 YAML 配置文件：$Path"
+        Write-Verbose "Successfully wrote to YAML configuration file: $Path"
     }
     catch {
-        throw "写入 YAML 文件失败：$Path`n错误详情：$_"
+        throw "Failed to write to YAML file: $Path`nError details: $_"
     }
 }
 
@@ -125,7 +125,7 @@ function Add-AliasPath {
         $data = Get-Content $Path -Raw | ConvertFrom-Yaml -Ordered
     }
     catch {
-        throw "读取配置文件失败：$Path`n错误详情：$_"
+        throw "Failed to read configuration file: $Path`nError details: $_"
     }
 
     # 修复5：处理 $data 为空的极端情况
@@ -156,7 +156,7 @@ function Remove-AliasPath {
 
     # 检查文件是否存在
     if (-not (Test-Path $Path)) {
-        Write-Verbose "配置文件不存在：$Path，无需删除别名" -ForegroundColor Yellow
+        Write-Verbose "Configuration file does not exist: $Path, no need to remove alias" -ForegroundColor Yellow
         return
     }
 
@@ -165,7 +165,7 @@ function Remove-AliasPath {
         $data = Get-Content $Path -Raw | ConvertFrom-Yaml -Ordered
     }
     catch {
-        throw "读取配置文件失败：$Path`n错误详情：$_"
+        throw "Failed to read configuration file: $Path`nError details: $_"
     }
 
     # 检查aliases节点是否存在
@@ -185,7 +185,7 @@ function Remove-AliasPath {
         $aliasExists = $data.aliases.ContainsKey($AliasName)
     }
 
-    # 5. 执行删除/提示
+    # 执行删除
     if ($aliasExists) {
         $data.aliases.Remove($AliasName) | Out-Null
         Write-AliasYaml -Data $data -Path $Path

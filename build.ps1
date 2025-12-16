@@ -14,7 +14,7 @@ if (-not (Get-Command Use-ShortcutAlias -ErrorAction SilentlyContinue)) {
     Import-Module pwsh_shortcut_alias -ErrorAction Stop
 }
 
-Use-ShortcutAlias update
+Use-ShortcutAlias update 6> $null
 ### pwsh_shortcut_alias_end
 '@.Trim()
 
