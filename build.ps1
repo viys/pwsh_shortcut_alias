@@ -19,7 +19,8 @@ param (
 $ModuleName = "pwsh_shortcut_alias"
 $RequiredModules = @('powershell-yaml')
 $ProfileMarkerStart = "### pwsh_shortcut_alias_start"
-$ProfileMarkerEnd = "### pwsh_shortcut_alias_end"
+$ProfileMarkerEnd   = "### pwsh_shortcut_alias_end"
+
 $ProfileContent = @'
 ### pwsh_shortcut_alias_start
 if (-not (Get-Command Use-ShortcutAlias -ErrorAction SilentlyContinue)) {
@@ -40,9 +41,13 @@ function Test-PSRepositoryTrusted {
     $repo = Get-PSRepository -Name $RepositoryName -ErrorAction SilentlyContinue
     if (-not $repo) {
         Write-Warning "Repository $RepositoryName not found, registering..."
-        Register-PSRepository -Name $RepositoryName -SourceLocation "https://www.powershellgallery.com/api/v2/" -InstallationPolicy Trusted
+        Register-PSRepository `
+            -Name $RepositoryName `
+            -SourceLocation "https://www.powershellgallery.com/api/v2/" `
+            -InstallationPolicy Trusted
         return $true
     }
+
     return $repo.InstallationPolicy -eq "Trusted"
 }
 
@@ -56,7 +61,6 @@ function Install-RequiredModule {
         return $true
     }
 
-    # Ensure PSGallery is trusted
     if (-not (Test-PSRepositoryTrusted)) {
         Write-Host "🔒 Setting PSGallery as trusted repository" -ForegroundColor Cyan
         Set-PSRepository -Name PSGallery -InstallationPolicy Trusted -ErrorAction Stop
@@ -64,7 +68,13 @@ function Install-RequiredModule {
 
     try {
         Write-Host "📦 Installing required module: $ModuleName" -ForegroundColor Cyan
-        Install-Module -Name $ModuleName -Scope CurrentUser -Repository PSGallery -Force -ErrorAction Stop
+        Install-Module `
+            -Name $ModuleName `
+            -Scope CurrentUser `
+            -Repository PSGallery `
+            -Force `
+            -ErrorAction Stop
+
         Import-Module -Name $ModuleName -Force -ErrorAction Stop
         Write-Host "✅ Successfully installed $ModuleName" -ForegroundColor Green
         return $true
@@ -87,48 +97,51 @@ function Update-ProfileContent {
         [string]$EndMarker
     )
 
-    # Validate profile path
-    if (-not $PROFILE -or -not (Test-Path (Split-Path $PROFILE -Parent) -ErrorAction SilentlyContinue)) {
-        Write-Error "❌ Invalid profile path: $PROFILE"
+    # Profile directory must exist (created earlier in install)
+    $profileDir = Split-Path $PROFILE -Parent
+    if (-not (Test-Path $profileDir)) {
+        Write-Error "❌ Invalid profile directory: $profileDir"
         return $false
     }
 
-    # Create profile if not exists
     if (-not (Test-Path $PROFILE)) {
         Write-Host "📄 Creating PowerShell profile at $PROFILE" -ForegroundColor Cyan
-        New-Item -ItemType File -Path $PROFILE -Force -Encoding UTF8NoBOM -ErrorAction Stop | Out-Null
+        New-Item -ItemType File -Path $PROFILE -Force | Out-Null
     }
 
-    # Read profile content (handle encoding)
     $profileContent = Get-Content -Path $PROFILE -Raw -Encoding UTF8 -ErrorAction Stop
 
     switch ($Operation) {
         "add" {
-            if ($profileContent -match [regex]::Escape($StartMarker) -and $profileContent -match [regex]::Escape($EndMarker)) {
-                Write-Warning "⚠️ $ModuleName already exists in profile, updating to latest version"
-                # Replace existing content
-                $profileContent = $profileContent -replace "(?ms)$([regex]::Escape($StartMarker)).*?$([regex]::Escape($EndMarker))", $Content
+            if ($profileContent -match [regex]::Escape($StartMarker) -and
+                $profileContent -match [regex]::Escape($EndMarker)) {
+
+                Write-Warning "⚠️ $ModuleName already exists in profile, updating"
+                $profileContent = $profileContent -replace `
+                    "(?ms)$([regex]::Escape($StartMarker)).*?$([regex]::Escape($EndMarker))",
+                    $Content
             }
             else {
-                # Append new content
                 $profileContent += "`n$Content"
             }
         }
+
         "remove" {
             if (-not ($profileContent -match [regex]::Escape($StartMarker))) {
                 Write-Warning "⚠️ $ModuleName not found in profile, nothing to remove"
                 return $true
             }
-            # Remove marked content (preserve newlines)
-            $profileContent = $profileContent -replace "(?ms)$([regex]::Escape($StartMarker)).*?$([regex]::Escape($EndMarker))", ""
-            # Clean up empty lines
+
+            $profileContent = $profileContent -replace `
+                "(?ms)$([regex]::Escape($StartMarker)).*?$([regex]::Escape($EndMarker))",
+                ""
+
             $profileContent = $profileContent -replace "`n+", "`n" -replace "`n$", ""
         }
     }
 
-    # Write back to profile (UTF8 no BOM for compatibility)
     try {
-        Set-Content -Path $PROFILE -Value $profileContent -Encoding UTF8NoBOM -Force -ErrorAction Stop
+        Set-Content -Path $PROFILE -Value $profileContent -Encoding UTF8NoBOM -Force
         Write-Host "✅ Profile updated successfully" -ForegroundColor Green
         return $true
     }
@@ -143,94 +156,92 @@ function Update-ProfileContent {
 # --------------------------
 try {
     switch ($Action) {
+
         "install" {
             Write-Host "`n🚀 Starting $ModuleName installation`n" -ForegroundColor Cyan
 
-            # Step 1: Install required dependencies
-            $depsInstalled = $true
+            # Ensure profile directory and file exist
+            $profileDir = Split-Path $PROFILE -Parent
+            if (-not (Test-Path $profileDir)) {
+                New-Item -ItemType Directory -Path $profileDir -Force | Out-Null
+            }
+
+            if (-not (Test-Path $PROFILE)) {
+                New-Item -ItemType File -Path $PROFILE -Force | Out-Null
+            }
+
+            # Install dependencies
             foreach ($module in $RequiredModules) {
                 if (-not (Install-RequiredModule -ModuleName $module)) {
-                    $depsInstalled = $false
+                    throw "Required module install failed: $module"
                 }
             }
-            if (-not $depsInstalled) {
-                throw "One or more required modules failed to install"
-            }
 
-            # Step 2: Define module destination path
-            $moduleDest = Join-Path (Split-Path $PROFILE) "Modules\$ModuleName"
+            # Module destination
+            $moduleRoot = Join-Path $profileDir "Modules"
+            $moduleDest = Join-Path $moduleRoot $ModuleName
+
+            New-Item -ItemType Directory -Path $moduleDest -Force | Out-Null
             Write-Host "📂 Module destination: $moduleDest" -ForegroundColor Gray
 
-            # Step 3: Create destination directory
-            New-Item -ItemType Directory -Path $moduleDest -Force -ErrorAction Stop | Out-Null
-
-            # Step 4: Copy module files (exclude git/config files)
+            # Copy files
             Write-Host "📤 Copying module files..." -ForegroundColor Cyan
             $excludeItems = @('.git', '.gitignore', 'shortcut_aliases.yaml', 'build.ps1', 'LICENSE', 'README.md')
-            Copy-Item -Path ".\*" -Destination $moduleDest -Recurse -Force -Exclude $excludeItems -ErrorAction Stop
+            Copy-Item -Path ".\*" -Destination $moduleDest -Recurse -Force -Exclude $excludeItems
 
-            # Step 5: Unload existing module (non-fatal)
+            # Reload module
             if (Get-Module $ModuleName -ErrorAction SilentlyContinue) {
-                Write-Host "🔄 Unloading existing $ModuleName module" -ForegroundColor Cyan
                 Remove-Module $ModuleName -Force -ErrorAction SilentlyContinue
             }
 
-            # Step 6: Import new module
-            Write-Host "🔧 Importing $ModuleName module" -ForegroundColor Cyan
             $moduleManifest = Join-Path $moduleDest "$ModuleName.psd1"
             if (-not (Test-Path $moduleManifest)) {
-                throw "Module manifest not found at $moduleManifest"
+                throw "Module manifest not found: $moduleManifest"
             }
+
             Import-Module $moduleManifest -Force -ErrorAction Stop
 
-            # Step 7: Update profile content
+            # Update profile
             Write-Host "📝 Updating PowerShell profile" -ForegroundColor Cyan
-            if (-not (Update-ProfileContent -Operation add -Content $ProfileContent -StartMarker $ProfileMarkerStart -EndMarker $ProfileMarkerEnd)) {
-                throw "Failed to update profile content"
+            if (-not (Update-ProfileContent -Operation add `
+                    -Content $ProfileContent `
+                    -StartMarker $ProfileMarkerStart `
+                    -EndMarker $ProfileMarkerEnd)) {
+                throw "Profile update failed"
             }
 
-            # Step 8: Final validation
             if (-not (Get-Command Use-ShortcutAlias -ErrorAction SilentlyContinue)) {
-                throw "Module installation succeeded but command not found"
+                throw "Command Use-ShortcutAlias not found after install"
             }
 
-            Write-Host "`n🎉 $ModuleName installed successfully!`n" -ForegroundColor Green
-            Write-Host "💡 To start using: Restart PowerShell or run: . $PROFILE`n" -ForegroundColor Yellow
-            break
+            Write-Host "`n🎉 $ModuleName installed successfully!" -ForegroundColor Green
+            Write-Host "💡 Restart PowerShell or run: . `"$PROFILE`"`n" -ForegroundColor Yellow
         }
 
         "uninstall" {
             Write-Host "`n🗑️ Starting $ModuleName uninstallation`n" -ForegroundColor Cyan
 
-            # Step 1: Remove profile content
-            Write-Host "📝 Removing $ModuleName from profile" -ForegroundColor Cyan
-            Update-ProfileContent -Operation remove -Content $ProfileContent -StartMarker $ProfileMarkerStart -EndMarker $ProfileMarkerEnd
+            Update-ProfileContent `
+                -Operation remove `
+                -Content $ProfileContent `
+                -StartMarker $ProfileMarkerStart `
+                -EndMarker $ProfileMarkerEnd | Out-Null
 
-            # Step 2: Unload module
             if (Get-Module $ModuleName -ErrorAction SilentlyContinue) {
-                Write-Host "🔄 Unloading $ModuleName module" -ForegroundColor Cyan
                 Remove-Module $ModuleName -Force -ErrorAction SilentlyContinue
             }
 
-            # Step 3: Delete module files (optional - confirm before delete)
-            $moduleDest = Join-Path (Split-Path $PROFILE) "Modules\$ModuleName"
-            if (Test-Path $moduleDest) {
-                Write-Host "🗑️ Deleting module files from $moduleDest" -ForegroundColor Cyan
-                Remove-Item -Path $moduleDest -Recurse -Force -ErrorAction SilentlyContinue
+            $moduleDir = Join-Path (Join-Path (Split-Path $PROFILE -Parent) "Modules") $ModuleName
+            if (Test-Path $moduleDir) {
+                Remove-Item -Path $moduleDir -Recurse -Force -ErrorAction SilentlyContinue
             }
 
-            Write-Host "`n✅ $ModuleName uninstalled successfully!`n" -ForegroundColor Green
-            Write-Host "💡 Changes will take effect after restarting PowerShell`n" -ForegroundColor Yellow
-            break
-        }
-
-        Default {
-            Write-Error "❌ Invalid action: $Action. Use 'install' or 'uninstall'"
-            exit 1
+            Write-Host "`n✅ $ModuleName uninstalled successfully!" -ForegroundColor Green
+            Write-Host "💡 Restart PowerShell to apply changes`n" -ForegroundColor Yellow
         }
     }
 }
 catch {
-    Write-Error "`n❌ $Action failed: $($_.Exception.Message)`n" -ForegroundColor Red
+    Write-Error "`n❌ $Action failed: $($_.Exception.Message)`n"
     exit 1
 }
