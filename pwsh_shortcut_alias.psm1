@@ -63,7 +63,22 @@ function Use-ShortcutAlias {
         [string]$AliasName,
 
         [Parameter(Position = 2)]
-        [ValidateScript({ Test-Path $_ -PathType Leaf })] # 提前验证路径存在
+        [ValidateScript({
+            # 1. URL
+            try {
+                $uri = [Uri]$_
+                if ($uri.Scheme -in 'http','https') {
+                    return $true
+                }
+            } catch {}
+
+            # 2. 文件 或 目录
+            if (Test-Path $_) {
+                return $true
+            }
+
+            return $false
+        })] # 提前验证路径存在
         [string]$ShortcutPath
     )
 
@@ -96,10 +111,26 @@ function Add-ShortcutAlias {
 
     Write-Verbose "Attempting to add alias '$AliasName' with path '$ShortcutPath'"
 
+    # 判断是否 URL
+    $isUrl = $false
     try {
-        $resolvedPath = Resolve-Path $ShortcutPath -ErrorAction Stop
-        Add-AliasPath -Path $YamlCfgPath -AliasName $AliasName -ShortcutPath $resolvedPath.Path
-        Write-Host "Alias '$AliasName' added successfully -> $($resolvedPath.Path)" -ForegroundColor Green
+        $uri = [Uri]$ShortcutPath
+        if ($uri.Scheme -in 'http','https') {
+            $isUrl = $true
+        }
+    } catch {}
+
+    try {
+        if ($isUrl) {
+            # URL 不解析路径，直接存字符串
+            Add-AliasPath -Path $YamlCfgPath -AliasName $AliasName -ShortcutPath $ShortcutPath
+            Write-Host "Alias '$AliasName' added successfully -> $ShortcutPath" -ForegroundColor Green
+        } else {
+            # 文件或目录才解析路径
+            $resolvedPath = Resolve-Path $ShortcutPath -ErrorAction Stop
+            Add-AliasPath -Path $YamlCfgPath -AliasName $AliasName -ShortcutPath $resolvedPath.Path
+            Write-Host "Alias '$AliasName' added successfully -> $($resolvedPath.Path)" -ForegroundColor Green
+        }
     }
     catch {
         Write-Host "Failed to add alias: $($_.Exception.Message)" -ForegroundColor Red
@@ -176,14 +207,24 @@ function Update-ShortcutAlias {
         $name = $item.Name
         $target = $item.Path
 
-        if (-not (Test-Path $target)) {
+        # 判断是否 URL
+        $isUrl = $false
+        try {
+            $uri = [Uri]$target
+            if ($uri.Scheme -in 'http','https') {
+                $isUrl = $true
+            }
+        } catch {}
+
+        # 只有非 URL 才做路径存在检查
+        if (-not $isUrl -and -not (Test-Path $target)) {
             Write-Warning "Target path not found for alias '$name': $target"
             continue
         }
 
         try {
             $scriptBlock = {
-                explorer.exe $target
+                Start-Process explorer.exe $target
             }.GetNewClosure()
 
             Set-Item -Path "Function:\Global:$name" -Value $scriptBlock -ErrorAction Stop

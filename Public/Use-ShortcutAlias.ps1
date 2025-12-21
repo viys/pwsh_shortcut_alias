@@ -86,7 +86,22 @@ function Use-ShortcutAlias {
         [string]$AliasName,
 
         [Parameter(Position = 2)]
-        [ValidateScript({ Test-Path $_ -PathType Leaf })]
+        [ValidateScript({
+            # 1. URL
+            try {
+                $uri = [Uri]$_
+                if ($uri.Scheme -in 'http','https') {
+                    return $true
+                }
+            } catch {}
+
+            # 2. 文件 或 目录
+            if (Test-Path $_) {
+                return $true
+            }
+
+            return $false
+        })] # 提前验证路径存在
         [string]$ShortcutPath
     )
 
