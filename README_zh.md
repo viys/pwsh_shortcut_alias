@@ -16,7 +16,7 @@
 
 ## 安装
 
-### 自动化
+### 自动化安装
 
 - 安装
 
@@ -44,17 +44,21 @@ Copy-Item -Path .\pwsh_shortcut_alias -Destination "$HOME\Documents\PowerShell\M
 Import-Module pwsh_shortcut_alias -Force
 ```
 
-3. 可选：将模块自动加载到 PowerShell profile，方便每次启动时使用：
+3. 在 PowerShell profile 添加如下内容，使用 notepad $PROFILE 快速编辑：
 
 ```powershell
-# 使用 notepad $PROFILE 快速编辑
+### pwsh_shortcut_alias_start
 if (-not (Get-Command Use-ShortcutAlias -ErrorAction SilentlyContinue)) {
     Import-Module pwsh_shortcut_alias -ErrorAction Stop
 }
-Use-ShortcutAlias update
+
+Use-ShortcutAlias update 6> $null
+### pwsh_shortcut_alias_end
 ```
 
 ## 使用方法
+
+> Use-ShortcutAlias 的别名为 usa。
 
 ### 添加别名
 

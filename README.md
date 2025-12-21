@@ -32,16 +32,21 @@ Copy-Item -Path .\pwsh_shortcut_alias -Destination "$HOME\Documents\PowerShell\M
 ```powershell
 Import-Module pwsh_shortcut_alias -Force
 ```
-3. Optional: Configure the module to load automatically in the PowerShell profile for convenient use on every launch:
+3. Add the following to your PowerShell profile and use notepad $PROFILE to edit it quickly:
 ```powershell
-# Use notepad $PROFILE to edit the profile quickly
+### pwsh_shortcut_alias_start
 if (-not (Get-Command Use-ShortcutAlias -ErrorAction SilentlyContinue)) {
     Import-Module pwsh_shortcut_alias -ErrorAction Stop
 }
-Use-ShortcutAlias update
+
+Use-ShortcutAlias update 6> $null
+### pwsh_shortcut_alias_end
 ```
 
 ## Usage
+
+> The alias for Use-ShortcutAlias is usa.
+
 ### Add Aliases
 ```powershell
 Use-ShortcutAlias add edge "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Microsoft Edge.lnk"
