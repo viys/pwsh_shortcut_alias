@@ -1,80 +1,98 @@
+function Use-ShortcutAlias {
 <#
 .SYNOPSIS
-    管理快捷方式别名：添加、删除、搜索或更新别名。
+    Manage shortcut aliases: add, remove, search, or update aliases.
 
 .DESCRIPTION
-    Use-ShortcutAlias (别名: usa) 是一个PowerShell模块函数，用于为常用程序/脚本创建全局快捷方式别名，
-    可通过别名快速启动对应程序。别名信息持久化存储在模块目录的 YAML 文件中，支持以下操作：
-    1. add    - 添加新别名（自动验证路径合法性，仅支持字母/数字/下划线命名）
-    2. remove - 删除指定别名（同步移除全局函数）
-    3. search - 查询别名（支持模糊匹配，结果自动对齐格式化输出）
-    4. update - 根据 YAML 文件重新加载所有别名到全局函数
+    Use-ShortcutAlias (alias: usa) is a PowerShell module function used to create
+    global shortcut aliases for frequently used programs or scripts.
+    These aliases allow you to quickly launch the associated targets by name.
+
+    Alias definitions are persistently stored in a YAML file located in the module
+    directory. The function supports the following operations:
+
+    1. add    - Add a new alias (automatically validates the target path; alias names
+               support letters, numbers, and underscores)
+    2. remove - Remove an existing alias (also removes the corresponding global function)
+    3. search - Search aliases (supports fuzzy matching; results are aligned and formatted)
+    4. update - Reload all aliases from the YAML file into global functions
 
 .PARAMETER Action
-    [必填] 指定要执行的操作类型，仅支持以下值：
-        add    - 添加新别名（需同时指定 AliasName 和 ShortcutPath）
-        remove - 删除指定别名（需指定 AliasName）
-        search - 搜索别名（AliasName 可选，为空时列出所有别名）
-        update - 更新所有别名（无需额外参数）
+    [Required] Specifies the operation to perform. Supported values:
+
+        add    - Add a new alias (requires AliasName and ShortcutPath)
+        remove - Remove an existing alias (requires AliasName)
+        search - Search aliases (AliasName is optional; lists all aliases if omitted)
+        update - Reload all aliases (no additional parameters required)
 
 .PARAMETER AliasName
-    [可选] 别名名称，规则：
-    - 仅支持字母、数字、下划线（避免特殊字符导致解析错误）
-    - add/remove 操作时为必填项
-    - search 操作时支持模糊匹配（如输入 "ed" 会匹配 "edge"、"edit" 等）
-    - update 操作时无需指定
+    [Optional] The alias name. Rules:
+
+    - Only letters, numbers, and underscores are supported (to avoid parsing issues)
+    - Required for add and remove operations
+    - Supports fuzzy matching for search (e.g. "ed" matches "edge", "edit", etc.)
+    - Not required for the update operation
 
 .PARAMETER ShortcutPath
-    [可选] 程序/脚本/快捷方式的完整路径，仅在 add 操作时为必填项，
-    函数会自动验证路径是否存在且为文件（非目录）。
+    [Optional] The full path to the program, script, or shortcut file.
+    Required only for the add operation.
+
+    The function automatically validates that the path exists and refers to a file
+    (not a directory).
 
 .EXAMPLE
-    # 基本用法：添加别名（推荐使用别名 usa 简化输入）
+    # Basic usage: add an alias (using the alias 'usa' is recommended)
     Use-ShortcutAlias add edge "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Microsoft Edge.lnk"
-    # 或简化为
+
+    # Or simplified:
     usa add edge "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Microsoft Edge.lnk"
 
 .EXAMPLE
-    # 删除别名
+    # Remove an alias
     Use-ShortcutAlias remove edge
-    # 或
+
+    # Or:
     usa remove edge
 
 .EXAMPLE
-    # 搜索别名（模糊匹配）
+    # Search aliases (fuzzy matching)
     Use-ShortcutAlias search ed
-    # 或列出所有别名
+
+    # Or list all aliases:
     Use-ShortcutAlias search
 
 .EXAMPLE
-    # 更新所有别名（从 YAML 文件重新加载）
+    # Reload all aliases from the YAML file
     Use-ShortcutAlias update
-    # 或
+
+    # Or:
     usa update
 
 .INPUTS
-    无（此函数不接受管道输入）
+    None. This function does not accept pipeline input.
 
 .OUTPUTS
-    字符串（操作结果提示，不同操作输出不同颜色的提示信息）
-    - 成功：绿色文字
-    - 失败/不存在：红色/黄色文字
-    - 详细日志：使用 -Verbose 参数查看
+    String. Operation result messages with colored output:
+
+    - Success: green text
+    - Failure / not found: red or yellow text
+    - Detailed logs: available via the -Verbose parameter
 
 .NOTES
-    1. YAML 配置文件路径：<模块根目录>\shortcout_aliases.yaml
-    2. 别名创建后会生成全局函数，可直接在 PowerShell 中输入别名启动程序
-    3. 模块版本：0.1.0
-    4. 兼容 PowerShell 5.1/7+，需提前安装 powershell-yaml 模块：
+    1. YAML configuration file path:
+       <ModuleRoot>\shortcout_aliases.yaml
+    2. Each alias is implemented as a global function and can be invoked directly
+       from PowerShell.
+    3. Module version: 0.1.0
+    4. Compatible with PowerShell 5.1 and 7+.
+       Requires the powershell-yaml module:
        Install-Module powershell-yaml -Scope CurrentUser -Force
 
 .LINK
-    # 可选：如果有模块文档/仓库链接，可添加
-    https://github.com/你的用户名/pwsh_shortcut_alias
+    https://github.com/viys/pwsh_shortcut_alias
 #>
 
-function Use-ShortcutAlias {
-    [CmdletBinding(DefaultParameterSetName = "Default")]
+[CmdletBinding(DefaultParameterSetName = "Default")]
     [Alias("usa")]
     param (
         [Parameter(Position = 0, Mandatory)]
@@ -82,12 +100,11 @@ function Use-ShortcutAlias {
         [string]$Action,
 
         [Parameter(Position = 1)]
-        [ValidatePattern('^[a-zA-Z0-9_]+$')]
+        [ValidatePattern('^[A-Za-z0-9][A-Za-z0-9_-]*$')]
         [string]$AliasName,
 
         [Parameter(Position = 2)]
         [ValidateScript({
-            # 1. URL
             try {
                 $uri = [Uri]$_
                 if ($uri.Scheme -in 'http','https') {
@@ -95,13 +112,12 @@ function Use-ShortcutAlias {
                 }
             } catch {}
 
-            # 2. 文件 或 目录
             if (Test-Path $_) {
                 return $true
             }
 
             return $false
-        })] # 提前验证路径存在
+        })]
         [string]$ShortcutPath
     )
 

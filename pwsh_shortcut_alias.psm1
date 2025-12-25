@@ -59,7 +59,7 @@ function Use-ShortcutAlias {
         [string]$Action,
 
         [Parameter(Position = 1)]
-        [ValidatePattern('^[a-zA-Z0-9_]+$')] # 限制别名仅含字母/数字/下划线
+        [ValidatePattern('^[A-Za-z0-9][A-Za-z0-9_-]*$')]
         [string]$AliasName,
 
         [Parameter(Position = 2)]
@@ -102,7 +102,7 @@ function Add-ShortcutAlias {
     [CmdletBinding()]
     param (
         [Parameter(Mandatory)]
-        [ValidatePattern('^[a-zA-Z0-9_]+$')]
+        [ValidatePattern('^[A-Za-z0-9][A-Za-z0-9_-]*$')]
         [string]$AliasName,
 
         [Parameter(Mandatory)]
