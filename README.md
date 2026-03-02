@@ -91,6 +91,17 @@ aliases:
 Install-Module powershell-yaml -Scope CurrentUser
 ```
 
+
+## Troubleshooting
+
+
+### PSGallery Repository Not Found
+If you see this error during installation: WARNING: Repository PSGallery not found
+Run the following command and try again:
+```powershell
+Register-PSRepository -Default
+```
+
 ## Notes
 - Alias names must be unique
 - `Use-ShortcutAlias update` registers all aliases in the YAML file as global functions
