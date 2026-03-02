@@ -113,6 +113,18 @@ aliases:
 Install-Module powershell-yaml -Scope CurrentUser
 ```
 
+## 故障排除
+
+### PSGallery 仓库未找到
+
+如果在安装过程中看到如下错误：`WARNING: Repository PSGallery not found`
+
+请执行以下命令后重新安装：
+
+```powershell
+Register-PSRepository -Default
+```
+
 ## 注意事项
 
 * 别名名称必须唯一
