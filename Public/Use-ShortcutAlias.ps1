@@ -14,7 +14,7 @@ function Use-ShortcutAlias {
     1. add    - Add a new alias (automatically validates the target path; alias names
                support letters, numbers, and underscores)
     2. remove - Remove an existing alias (also removes the corresponding global function)
-    3. search - Search aliases (supports fuzzy matching; results are aligned and formatted)
+    3. search - Search aliases (supports fuzzy matching; keeps aligned console output and also returns structured objects)
     4. update - Reload all aliases from the YAML file into global functions
 
 .PARAMETER Action
@@ -64,6 +64,10 @@ function Use-ShortcutAlias {
     Use-ShortcutAlias search
 
 .EXAMPLE
+    # Search aliases and consume structured results in a script
+    Use-ShortcutAlias search ed | Select-Object Name, Path, IsUrl
+
+.EXAMPLE
     # Reload all aliases from the YAML file
     Use-ShortcutAlias update
 
@@ -74,11 +78,12 @@ function Use-ShortcutAlias {
     None. This function does not accept pipeline input.
 
 .OUTPUTS
-    String. Operation result messages with colored output:
+    String or PSCustomObject. Operation result messages still use colored console output:
 
     - Success: green text
     - Failure / not found: red or yellow text
     - Detailed logs: available via the -Verbose parameter
+    - Search results: objects with Name, Path, and IsUrl
 
 .NOTES
     1. YAML configuration file path:

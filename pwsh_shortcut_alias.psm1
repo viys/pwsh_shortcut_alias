@@ -98,26 +98,37 @@ function Invoke-ShortcutAliasLaunch {
     Start-Process explorer.exe $Target
 }
 
-# 私有通用函数：格式化别名输出（复用逻辑）
+# 私有通用函数：统一构建搜索结果，分离搜索匹配和控制台展示职责
+function Get-ShortcutAliasSearchResults {
+    [CmdletBinding()]
+    param (
+        [Parameter()]
+        [string]$AliasName = "*"
+    )
+
+    $filter = "*$AliasName*"
+    $entries = Get-ShortcutAliasRegistryEntries | Where-Object { $_.Name -like $filter }
+
+    return @($entries)
+}
+
+# 私有通用函数：只负责把搜索结果转换为控制台对齐展示数据
 function Format-AliasOutput {
     [CmdletBinding()]
     param (
         [Parameter(Mandatory)]
-        [object]$Aliases,
-
-        [Parameter()]
-        [string]$Filter = "*"
+        [object[]]$SearchResults
     )
-    $matchingKeys = $Aliases.Keys | Where-Object { $_ -like $Filter }
-    if (-not $matchingKeys) { return $null }
 
-    $maxKeyLength = ($matchingKeys | Measure-Object -Property Length -Maximum).Maximum
-    foreach ($key in $matchingKeys) {
-        $spaceCount = $maxKeyLength - $key.Length + 2
+    if (-not $SearchResults) { return $null }
+
+    $maxKeyLength = ($SearchResults.Name | Measure-Object -Property Length -Maximum).Maximum
+    foreach ($item in $SearchResults) {
+        $spaceCount = $maxKeyLength - $item.Name.Length + 2
         [PSCustomObject]@{
-            Name    = $key
+            Name    = $item.Name
             Spaces  = " " * $spaceCount
-            Path    = $Aliases[$key]
+            Path    = $item.Path
             MaxLength = $maxKeyLength
         }
     }
@@ -222,13 +233,14 @@ function Search-ShortcutAlias {
         [string]$AliasName = "*" # 默认模糊匹配所有
     )
 
-    $aliases = Read-AliasYaml -Path $YamlCfgPath
-    $formattedOutput = Format-AliasOutput -Aliases $aliases -Filter "*$AliasName*"
+    $searchResults = Get-ShortcutAliasSearchResults -AliasName $AliasName
 
-    if (-not $formattedOutput) {
+    if (-not $searchResults) {
         Write-Host "No alias matching '$AliasName' found" -ForegroundColor Yellow
         return
     }
+
+    $formattedOutput = Format-AliasOutput -SearchResults $searchResults
 
     # 统一输出格式
     foreach ($item in $formattedOutput) {
@@ -236,6 +248,8 @@ function Search-ShortcutAlias {
         Write-Host "-> " -ForegroundColor DarkGray -NoNewline
         Write-Host $item.Path
     }
+
+    return $searchResults
 }
 
 function Update-ShortcutAlias {

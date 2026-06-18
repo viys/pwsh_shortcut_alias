@@ -37,46 +37,51 @@
    - 执行 `Use-ShortcutAlias search <exact-name>`
    - 确认输出正确名称和目标路径
 8. 搜索模糊命中
-   - 执行 `Use-ShortcutAlias search <partial-name>`
-   - 确认返回所有匹配项
-9. 更新全部别名
-   - 执行 `Use-ShortcutAlias update`
-   - 确认输出更新计数正确
-   - 确认当前会话可直接调用已注册别名
-10. 更新时遇到失效本地路径
+    - 执行 `Use-ShortcutAlias search <partial-name>`
+    - 确认返回所有匹配项
+    - 确认可从管道拿到结构化对象
+9. 搜索结果对象验证
+   - 执行 `Use-ShortcutAlias search <name> | Select-Object Name, Path, IsUrl`
+   - 确认输出对象包含 `Name`、`Path`、`IsUrl`
+   - 确认对象中不包含 `Spaces`、`MaxLength`
+10. 更新全部别名
+    - 执行 `Use-ShortcutAlias update`
+    - 确认输出更新计数正确
+    - 确认当前会话可直接调用已注册别名
+11. 更新时遇到失效本地路径
     - 手动在 YAML 中保留一个不存在的本地路径
     - 执行 `Use-ShortcutAlias update`
     - 确认只对该条目输出 warning，其他别名仍正常注册
-11. YAML 首次创建
+12. YAML 首次创建
     - 删除 YAML 后重新执行一次 `add`
     - 确认文件自动创建且结构仍为 `aliases.<name>.path`
-12. YAML 排序稳定性
+13. YAML 排序稳定性
     - 添加多个乱序名称别名
     - 确认写回后按别名名升序稳定排序
-13. 旧 YAML 读取兼容性
+14. 旧 YAML 读取兼容性
     - 使用现有旧版 YAML 执行 `search` 和 `update`
     - 确认可以正常读取和注册
-14. 更新后直接调用别名
+15. 更新后直接调用别名
     - 执行 `Use-ShortcutAlias update`
     - 直接输入别名名
     - 确认目标被正常启动
-15. 文件路径别名启动验证
+16. 文件路径别名启动验证
     - 为文件路径执行 `Use-ShortcutAlias update`
     - 直接输入对应别名
     - 确认文件按既有方式被正常打开
-16. 目录别名启动验证
+17. 目录别名启动验证
     - 为目录路径执行 `Use-ShortcutAlias update`
     - 直接输入对应别名
     - 确认目录按既有方式被正常打开
-17. URL 别名启动验证
+18. URL 别名启动验证
     - 为 URL 执行 `Use-ShortcutAlias update`
     - 直接输入对应别名
     - 确认 URL 按既有方式被正常打开
-18. 动态函数边界验证
+19. 动态函数边界验证
     - 执行 `Use-ShortcutAlias update`
     - 检查已注册别名函数定义
     - 确认函数体只调用统一启动入口，不再直接内联 `Start-Process explorer.exe`
-19. 可替换启动入口验证
+20. 可替换启动入口验证
     - 在模块上下文内临时替换启动入口脚本块
     - 重新执行一次 `Use-ShortcutAlias update`
     - 直接输入已注册别名
@@ -90,3 +95,5 @@
 - 单个别名失败不会破坏整个 YAML 文件
 - 动态函数只负责传递 `Target`，不直接承载系统启动细节
 - 统一启动入口收到的目标与 YAML 中记录的目标一致
+- 搜索返回对象只暴露 `Name`、`Path`、`IsUrl` 等领域字段
+- 搜索展示层变化不会影响匹配结果数量和内容
