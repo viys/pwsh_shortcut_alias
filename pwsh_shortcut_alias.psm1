@@ -4,6 +4,16 @@ $YamlCfgPath = Join-Path $ModuleRoot 'shortcout_aliases.yaml'
 # 加载私有实现
 . "$ModuleRoot\Private\alias_yaml.ps1"
 
+# 模块作用域启动入口：默认指向真实启动逻辑，测试时可在模块上下文内临时替换
+$script:ShortcutAliasLaunchInvoker = {
+    param (
+        [Parameter(Mandatory)]
+        [string]$Target
+    )
+
+    Invoke-ShortcutAliasLaunch -Target $Target
+}
+
 # 私有通用函数：判断键是否存在（兼容OrderedDictionary/Hashtable）
 function Test-AliasKeyExists {
     [CmdletBinding()]
@@ -23,6 +33,69 @@ function Test-AliasKeyExists {
         }
         return $false
     }
+}
+
+# 私有通用函数：统一解析别名目标，收敛 URL/本地路径判断和路径规范化规则
+function Resolve-ShortcutAliasTarget {
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory)]
+        [string]$ShortcutPath,
+
+        [Parameter()]
+        [string]$AliasName = "",
+
+        [Parameter()]
+        [switch]$AllowUnresolvedLocalPath
+    )
+
+    $uri = $null
+    if ([System.Uri]::TryCreate($ShortcutPath, [System.UriKind]::Absolute, [ref]$uri) -and $uri.Scheme -in 'http', 'https') {
+        return [PSCustomObject]@{
+            Name  = $AliasName
+            Path  = $ShortcutPath
+            IsUrl = $true
+        }
+    }
+
+    if ($AllowUnresolvedLocalPath) {
+        return [PSCustomObject]@{
+            Name  = $AliasName
+            Path  = $ShortcutPath
+            IsUrl = $false
+        }
+    }
+
+    $resolvedPath = Resolve-Path $ShortcutPath -ErrorAction Stop
+    return [PSCustomObject]@{
+        Name  = $AliasName
+        Path  = $resolvedPath.Path
+        IsUrl = $false
+    }
+}
+
+# 私有通用函数：统一把 YAML 中的别名数据转换为阶段一约定的数据结构
+function Get-ShortcutAliasRegistryEntries {
+    [CmdletBinding()]
+    param ()
+
+    $aliases = Read-AliasYaml -Path $YamlCfgPath
+    $entries = foreach ($name in $aliases.Keys) {
+        Resolve-ShortcutAliasTarget -AliasName $name -ShortcutPath $aliases[$name] -AllowUnresolvedLocalPath
+    }
+
+    return @($entries)
+}
+
+# 私有通用函数：集中封装快捷别名的真实启动行为，避免系统调用散落在注册逻辑中
+function Invoke-ShortcutAliasLaunch {
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory)]
+        [string]$Target
+    )
+
+    Start-Process explorer.exe $Target
 }
 
 # 私有通用函数：格式化别名输出（复用逻辑）
@@ -64,20 +137,13 @@ function Use-ShortcutAlias {
 
         [Parameter(Position = 2)]
         [ValidateScript({
-            # 1. URL
             try {
-                $uri = [Uri]$_
-                if ($uri.Scheme -in 'http','https') {
-                    return $true
-                }
-            } catch {}
-
-            # 2. 文件 或 目录
-            if (Test-Path $_) {
+                Resolve-ShortcutAliasTarget -ShortcutPath $_ | Out-Null
                 return $true
             }
-
-            return $false
+            catch {
+                return $false
+            }
         })] # 提前验证路径存在
         [string]$ShortcutPath
     )
@@ -111,26 +177,10 @@ function Add-ShortcutAlias {
 
     Write-Verbose "Attempting to add alias '$AliasName' with path '$ShortcutPath'"
 
-    # 判断是否 URL
-    $isUrl = $false
     try {
-        $uri = [Uri]$ShortcutPath
-        if ($uri.Scheme -in 'http','https') {
-            $isUrl = $true
-        }
-    } catch {}
-
-    try {
-        if ($isUrl) {
-            # URL 不解析路径，直接存字符串
-            Add-AliasPath -Path $YamlCfgPath -AliasName $AliasName -ShortcutPath $ShortcutPath
-            Write-Host "Alias '$AliasName' added successfully -> $ShortcutPath" -ForegroundColor Green
-        } else {
-            # 文件或目录才解析路径
-            $resolvedPath = Resolve-Path $ShortcutPath -ErrorAction Stop
-            Add-AliasPath -Path $YamlCfgPath -AliasName $AliasName -ShortcutPath $resolvedPath.Path
-            Write-Host "Alias '$AliasName' added successfully -> $($resolvedPath.Path)" -ForegroundColor Green
-        }
+        $resolvedTarget = Resolve-ShortcutAliasTarget -AliasName $AliasName -ShortcutPath $ShortcutPath
+        Add-AliasPath -Path $YamlCfgPath -AliasName $resolvedTarget.Name -ShortcutPath $resolvedTarget.Path
+        Write-Host "Alias '$AliasName' added successfully -> $($resolvedTarget.Path)" -ForegroundColor Green
     }
     catch {
         Write-Host "Failed to add alias: $($_.Exception.Message)" -ForegroundColor Red
@@ -144,14 +194,12 @@ function Remove-ShortcutAlias {
         [string]$AliasName
     )
 
-    $aliases = Read-AliasYaml -Path $YamlCfgPath
-    if (-not (Test-AliasKeyExists -Dictionary $aliases -Key $AliasName)) {
-        Write-Host "Alias '$AliasName' not found" -ForegroundColor Red
-        return
-    }
-
     try {
-        Remove-AliasPath -Path $YamlCfgPath -AliasName $AliasName
+        $removed = Remove-AliasPath -Path $YamlCfgPath -AliasName $AliasName
+        if (-not $removed) {
+            Write-Host "Alias '$AliasName' not found" -ForegroundColor Red
+            return
+        }
 
         # 同步移除全局函数
         $funcPath = "Function:\Global:$AliasName"
@@ -194,37 +242,28 @@ function Update-ShortcutAlias {
     [CmdletBinding()]
     param ()
 
-    $aliases = Read-AliasYaml -Path $YamlCfgPath
-    if (-not $aliases.Keys) {
+    $entries = Get-ShortcutAliasRegistryEntries
+    if (-not $entries) {
         Write-Verbose "No aliases found to update"
         return
     }
 
-    $formattedOutput = Format-AliasOutput -Aliases $aliases
     $updatedCount = 0
 
-    foreach ($item in $formattedOutput) {
-        $name = $item.Name
-        $target = $item.Path
-
-        # 判断是否 URL
-        $isUrl = $false
-        try {
-            $uri = [Uri]$target
-            if ($uri.Scheme -in 'http','https') {
-                $isUrl = $true
-            }
-        } catch {}
+    foreach ($entry in $entries) {
+        $name = $entry.Name
+        $target = $entry.Path
 
         # 只有非 URL 才做路径存在检查
-        if (-not $isUrl -and -not (Test-Path $target)) {
+        if (-not $entry.IsUrl -and -not (Test-Path $target)) {
             Write-Warning "Target path not found for alias '$name': $target"
             continue
         }
 
         try {
+            $launchInvoker = $script:ShortcutAliasLaunchInvoker
             $scriptBlock = {
-                Start-Process explorer.exe $target
+                & $launchInvoker -Target $target
             }.GetNewClosure()
 
             Set-Item -Path "Function:\Global:$name" -Value $scriptBlock -ErrorAction Stop
@@ -236,7 +275,7 @@ function Update-ShortcutAlias {
         }
     }
 
-    Write-Host "Updated $updatedCount/$($aliases.Keys.Count) aliases successfully" -ForegroundColor Green
+    Write-Host "Updated $updatedCount/$($entries.Count) aliases successfully" -ForegroundColor Green
 }
 
 Export-ModuleMember -Function Use-ShortcutAlias -Alias usa

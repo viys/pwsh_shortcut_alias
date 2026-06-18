@@ -34,11 +34,13 @@ function Use-ShortcutAlias {
     - Not required for the update operation
 
 .PARAMETER ShortcutPath
-    [Optional] The full path to the program, script, or shortcut file.
+    [Optional] The target path or URL of the alias.
     Required only for the add operation.
 
-    The function automatically validates that the path exists and refers to a file
-    (not a directory).
+    The function automatically validates one of the following target types:
+    - http/https URL
+    - existing local file
+    - existing local directory
 
 .EXAMPLE
     # Basic usage: add an alias (using the alias 'usa' is recommended)
@@ -105,6 +107,16 @@ function Use-ShortcutAlias {
 
         [Parameter(Position = 2)]
         [ValidateScript({
+            try {
+                if (Get-Command Resolve-ShortcutAliasTarget -ErrorAction SilentlyContinue) {
+                    Resolve-ShortcutAliasTarget -ShortcutPath $_ | Out-Null
+                    return $true
+                }
+            }
+            catch {
+                return $false
+            }
+
             try {
                 $uri = [Uri]$_
                 if ($uri.Scheme -in 'http','https') {

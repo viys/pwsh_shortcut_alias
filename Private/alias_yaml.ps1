@@ -106,6 +106,32 @@ function Write-AliasYaml {
     }
 }
 
+# 私有通用函数：统一读取可写入的 YAML 文档，确保 aliases 节点始终存在
+function Read-AliasYamlDocument {
+    param (
+        [Parameter(Mandatory)]
+        [string]$Path
+    )
+
+    Initialize-AliasYaml -Path $Path
+
+    try {
+        $data = Get-Content $Path -Raw | ConvertFrom-Yaml -Ordered
+    }
+    catch {
+        throw "Failed to read configuration file: $Path`nError details: $_"
+    }
+
+    if (-not $data) {
+        $data = [ordered]@{ aliases = [ordered]@{} }
+    }
+    if (-not $data.aliases) {
+        $data.aliases = [ordered]@{}
+    }
+
+    return $data
+}
+
 function Add-AliasPath {
     param (
         [Parameter(Mandatory)]
@@ -118,23 +144,7 @@ function Add-AliasPath {
         [string]$ShortcutPath
     )
 
-    # 初始化配置文件（确保文件存在）
-    Initialize-AliasYaml -Path $Path
-
-    try {
-        $data = Get-Content $Path -Raw | ConvertFrom-Yaml -Ordered
-    }
-    catch {
-        throw "Failed to read configuration file: $Path`nError details: $_"
-    }
-
-    # 修复5：处理 $data 为空的极端情况
-    if (-not $data) {
-        $data = [ordered]@{ aliases = [ordered]@{} }
-    }
-    if (-not $data.aliases) {
-        $data.aliases = [ordered]@{}
-    }
+    $data = Read-AliasYamlDocument -Path $Path
 
     # 将 $AliasName 映射到 $ShortcutPath，存入 aliases 节点下
     $data.aliases[$AliasName] = [ordered]@{
@@ -156,23 +166,11 @@ function Remove-AliasPath {
 
     # 检查文件是否存在
     if (-not (Test-Path $Path)) {
-        Write-Verbose "Configuration file does not exist: $Path, no need to remove alias" -ForegroundColor Yellow
-        return
+        Write-Verbose "Configuration file does not exist: $Path, no need to remove alias"
+        return $false
     }
 
-    try {
-        # 读取YAML（有序）
-        $data = Get-Content $Path -Raw | ConvertFrom-Yaml -Ordered
-    }
-    catch {
-        throw "Failed to read configuration file: $Path`nError details: $_"
-    }
-
-    # 检查aliases节点是否存在
-    if (-not $data -or -not $data.aliases) {
-        Write-Verbose "Alias '$AliasName' does not exist"
-        return
-    }
+    $data = Read-AliasYamlDocument -Path $Path
 
     # 检查别名是否存在
     $aliasExists = $false
@@ -190,7 +188,9 @@ function Remove-AliasPath {
         $data.aliases.Remove($AliasName) | Out-Null
         Write-AliasYaml -Data $data -Path $Path
         Write-Verbose "Alias '$AliasName' removed successfully"
+        return $true
     } else {
         Write-Verbose "Alias '$AliasName' does not exist"
+        return $false
     }
 }
