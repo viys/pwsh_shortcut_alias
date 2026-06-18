@@ -34,6 +34,48 @@ Use-ShortcutAlias update 6> $null
 # --------------------------
 # Helper Functions
 # --------------------------
+# 辅助函数：统一计算安装与卸载过程中会复用的路径，避免主流程重复拼接
+function Get-ShortcutAliasInstallPaths {
+    [CmdletBinding()]
+    param ()
+
+    $profileDir = Split-Path $PROFILE -Parent
+    $moduleRoot = Join-Path $profileDir "Modules"
+    $moduleDir = Join-Path $moduleRoot $ModuleName
+    $moduleManifest = Join-Path $moduleDir "$ModuleName.psd1"
+
+    return [PSCustomObject]@{
+        ProfileDir     = $profileDir
+        ModuleRoot     = $moduleRoot
+        ModuleDir      = $moduleDir
+        ModuleManifest = $moduleManifest
+    }
+}
+
+# 辅助函数：统一准备 profile 与模块目录，收拢安装前置环境检查
+function Initialize-ShortcutAliasEnvironment {
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory)]
+        [object]$Paths,
+
+        [Parameter()]
+        [switch]$EnsureModuleRoot
+    )
+
+    if (-not (Test-Path $Paths.ProfileDir)) {
+        New-Item -ItemType Directory -Path $Paths.ProfileDir -Force | Out-Null
+    }
+
+    if (-not (Test-Path $PROFILE)) {
+        New-Item -ItemType File -Path $PROFILE -Force | Out-Null
+    }
+
+    if ($EnsureModuleRoot -and -not (Test-Path $Paths.ModuleRoot)) {
+        New-Item -ItemType Directory -Path $Paths.ModuleRoot -Force | Out-Null
+    }
+}
+
 function Test-PSRepositoryTrusted {
     [CmdletBinding()]
     param ([string]$RepositoryName = "PSGallery")
@@ -83,6 +125,33 @@ function Install-RequiredModule {
         Write-Error "❌ Failed to install $ModuleName : $($_.Exception.Message)"
         return $false
     }
+}
+
+# 辅助函数：统一部署模块文件并完成导入校验，避免安装主流程堆叠过多细节
+function Install-ShortcutAliasModule {
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory)]
+        [object]$Paths
+    )
+
+    $excludeItems = @('.git', '.gitignore', 'shortcut_aliases.yaml', 'build.ps1', 'LICENSE', 'README.md')
+
+    New-Item -ItemType Directory -Path $Paths.ModuleDir -Force | Out-Null
+    Write-Host "📂 Module destination: $($Paths.ModuleDir)" -ForegroundColor Gray
+
+    Write-Host "📤 Copying module files..." -ForegroundColor Cyan
+    Copy-Item -Path ".\*" -Destination $Paths.ModuleDir -Recurse -Force -Exclude $excludeItems
+
+    if (Get-Module $ModuleName -ErrorAction SilentlyContinue) {
+        Remove-Module $ModuleName -Force -ErrorAction SilentlyContinue
+    }
+
+    if (-not (Test-Path $Paths.ModuleManifest)) {
+        throw "Module manifest not found: $($Paths.ModuleManifest)"
+    }
+
+    Import-Module $Paths.ModuleManifest -Force -ErrorAction Stop
 }
 
 function Update-ProfileContent {
@@ -151,24 +220,35 @@ function Update-ProfileContent {
     }
 }
 
+# 辅助函数：统一执行卸载清理，保持卸载主流程聚焦在步骤编排
+function Uninstall-ShortcutAliasModule {
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory)]
+        [object]$Paths
+    )
+
+    if (Get-Module $ModuleName -ErrorAction SilentlyContinue) {
+        Remove-Module $ModuleName -Force -ErrorAction SilentlyContinue
+    }
+
+    if (Test-Path $Paths.ModuleDir) {
+        Remove-Item -Path $Paths.ModuleDir -Recurse -Force -ErrorAction SilentlyContinue
+    }
+}
+
 # --------------------------
 # Main Execution
 # --------------------------
 try {
+    $paths = Get-ShortcutAliasInstallPaths
+
     switch ($Action) {
 
         "install" {
             Write-Host "`n🚀 Starting $ModuleName installation`n" -ForegroundColor Cyan
 
-            # Ensure profile directory and file exist
-            $profileDir = Split-Path $PROFILE -Parent
-            if (-not (Test-Path $profileDir)) {
-                New-Item -ItemType Directory -Path $profileDir -Force | Out-Null
-            }
-
-            if (-not (Test-Path $PROFILE)) {
-                New-Item -ItemType File -Path $PROFILE -Force | Out-Null
-            }
+            Initialize-ShortcutAliasEnvironment -Paths $paths -EnsureModuleRoot
 
             # Install dependencies
             foreach ($module in $RequiredModules) {
@@ -177,29 +257,7 @@ try {
                 }
             }
 
-            # Module destination
-            $moduleRoot = Join-Path $profileDir "Modules"
-            $moduleDest = Join-Path $moduleRoot $ModuleName
-
-            New-Item -ItemType Directory -Path $moduleDest -Force | Out-Null
-            Write-Host "📂 Module destination: $moduleDest" -ForegroundColor Gray
-
-            # Copy files
-            Write-Host "📤 Copying module files..." -ForegroundColor Cyan
-            $excludeItems = @('.git', '.gitignore', 'shortcut_aliases.yaml', 'build.ps1', 'LICENSE', 'README.md')
-            Copy-Item -Path ".\*" -Destination $moduleDest -Recurse -Force -Exclude $excludeItems
-
-            # Reload module
-            if (Get-Module $ModuleName -ErrorAction SilentlyContinue) {
-                Remove-Module $ModuleName -Force -ErrorAction SilentlyContinue
-            }
-
-            $moduleManifest = Join-Path $moduleDest "$ModuleName.psd1"
-            if (-not (Test-Path $moduleManifest)) {
-                throw "Module manifest not found: $moduleManifest"
-            }
-
-            Import-Module $moduleManifest -Force -ErrorAction Stop
+            Install-ShortcutAliasModule -Paths $paths
 
             # Update profile
             Write-Host "📝 Updating PowerShell profile" -ForegroundColor Cyan
@@ -221,20 +279,15 @@ try {
         "uninstall" {
             Write-Host "`n🗑️ Starting $ModuleName uninstallation`n" -ForegroundColor Cyan
 
+            Initialize-ShortcutAliasEnvironment -Paths $paths
+
             Update-ProfileContent `
                 -Operation remove `
                 -Content $ProfileContent `
                 -StartMarker $ProfileMarkerStart `
                 -EndMarker $ProfileMarkerEnd | Out-Null
 
-            if (Get-Module $ModuleName -ErrorAction SilentlyContinue) {
-                Remove-Module $ModuleName -Force -ErrorAction SilentlyContinue
-            }
-
-            $moduleDir = Join-Path (Join-Path (Split-Path $PROFILE -Parent) "Modules") $ModuleName
-            if (Test-Path $moduleDir) {
-                Remove-Item -Path $moduleDir -Recurse -Force -ErrorAction SilentlyContinue
-            }
+            Uninstall-ShortcutAliasModule -Paths $paths
 
             Write-Host "`n✅ $ModuleName uninstalled successfully!" -ForegroundColor Green
             Write-Host "💡 Restart PowerShell to apply changes`n" -ForegroundColor Yellow

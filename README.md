@@ -8,6 +8,7 @@ Project Repository: [pwsh_shortcut_alias](https://github.com/viys/pwsh_shortcut_
 ## Features
 - Create shortcut aliases for frequently used programs or scripts
 - Support alias addition, deletion, fuzzy search, and update
+- Search keeps the current aligned console output and also returns structured objects
 - Alias information is stored in a YAML file, enabling cross-session usage of the module
 - One-click update of all aliases, which are automatically registered as global functions
 - Compatible with PowerShell 7+, relying on the `powershell-yaml` module for YAML file parsing
@@ -63,6 +64,11 @@ Use-ShortcutAlias remove edge
 Use-ShortcutAlias search ed
 ```
 
+### Search Aliases In Scripts
+```powershell
+Use-ShortcutAlias search ed | Select-Object Name, Path, IsUrl
+```
+
 ### Update All Aliases
 ```powershell
 Use-ShortcutAlias update
@@ -75,7 +81,7 @@ typora
 ```
 
 ## Configuration File
-- The module automatically generates a `shortcut_aliases.yaml` file to store alias information upon first use:
+- The module automatically generates a `shortcout_aliases.yaml` file to store alias information upon first use:
 ```yaml
 aliases:
   edge:
@@ -106,6 +112,7 @@ Register-PSRepository -Default
 - Alias names must be unique
 - `Use-ShortcutAlias update` registers all aliases in the YAML file as global functions
 - Ensure `Use-ShortcutAlias update` is executed before using aliases, otherwise the corresponding functions may not be registered
+- `Use-ShortcutAlias search` keeps the console display and also returns objects with `Name`, `Path`, and `IsUrl`
 
 ## Examples
 ```powershell
@@ -120,6 +127,9 @@ Use-ShortcutAlias remove vscode
 
 # Search for aliases
 Use-ShortcutAlias search co
+
+# Search for aliases in scripts
+Use-ShortcutAlias search co | Select-Object Name, Path, IsUrl
 ```
 
 ## License

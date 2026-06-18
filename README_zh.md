@@ -10,6 +10,7 @@
 
 * 为常用程序或脚本创建快捷方式别名
 * 支持别名添加、删除、搜索（模糊搜索）和更新
+* 搜索保留当前控制台对齐输出，同时也会返回结构化对象
 * 别名信息存储在 YAML 文件中，模块可跨会话使用
 * 一键更新所有别名，自动注册为全局函数
 * 支持 PowerShell 7+，依赖 `powershell-yaml` 模块解析 YAML 文件
@@ -79,6 +80,12 @@ Use-ShortcutAlias remove edge
 Use-ShortcutAlias search ed
 ```
 
+### 在脚本中消费搜索结果
+
+```powershell
+Use-ShortcutAlias search ed | Select-Object Name, Path, IsUrl
+```
+
 ### 更新所有别名
 
 ```powershell
@@ -130,6 +137,7 @@ Register-PSRepository -Default
 * 别名名称必须唯一
 * `Use-ShortcutAlias update` 会将 YAML 文件中所有别名注册为全局函数
 * 使用别名前确保 `Use-ShortcutAlias update` 已执行，否则函数可能未注册
+* `Use-ShortcutAlias search` 保留控制台显示，同时也会返回包含 `Name`、`Path`、`IsUrl` 的对象
 
 ## 示例
 
@@ -145,6 +153,9 @@ Use-ShortcutAlias remove vscode
 
 # 搜索别名
 Use-ShortcutAlias search co
+
+# 在脚本中消费搜索结果
+Use-ShortcutAlias search co | Select-Object Name, Path, IsUrl
 ```
 
 ## 许可证
