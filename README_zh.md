@@ -5,6 +5,7 @@
 `pwsh_shortcut_alias` 是一个基于 YAML 存储的 PowerShell 快捷方式别名模块。它可以为本地程序、`.lnk` 快捷方式、脚本和 URL 注册短命令，并在刷新后从任意 PowerShell 会话里直接启动对应目标。
 
 项目地址：[pwsh_shortcut_alias](https://github.com/viys/pwsh_shortcut_alias)
+PowerShell Gallery：[pwsh_shortcut_alias](https://www.powershellgallery.com/packages/pwsh_shortcut_alias/)
 
 ## 为什么使用它
 
@@ -19,14 +20,16 @@
 
 ### 从 PowerShell Gallery 安装
 
-```powershell
-Install-PSResource -Name pwsh_shortcut_alias
-```
-
-或者使用 PowerShellGet：
+为了获得最广的兼容性，尤其是在 Windows PowerShell 5.1 下，优先使用：
 
 ```powershell
 Install-Module -Name pwsh_shortcut_alias
+```
+
+如果你已经在使用 PSResourceGet，也可以执行：
+
+```powershell
+Install-PSResource -Name pwsh_shortcut_alias
 ```
 
 如果本机还没有注册 `PSGallery`：
@@ -140,7 +143,9 @@ aliases:
 - 别名名称必须唯一
 - 添加或删除别名后，需要执行 `Use-ShortcutAlias update`，再把它们当命令直接使用
 - `Use-ShortcutAlias search` 返回包含 `Name`、`Path`、`IsUrl` 的对象
-- 使用 PSGallery 安装时，`powershell-yaml` 依赖会自动安装
+- 模块本体兼容 Windows PowerShell 5.1 和 PowerShell 7+
+- 模块依赖 `powershell-yaml 0.4.1` 或更高版本
+- 使用 `Install-Module` 安装时，依赖会自动安装；当前 Gallery 上的 `powershell-yaml` 版本仍支持 Windows PowerShell 5.0+，不会额外收窄本模块的实际兼容范围
 
 ## 故障排除
 

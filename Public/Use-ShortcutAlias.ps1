@@ -14,7 +14,7 @@ function Use-ShortcutAlias {
     1. add    - Add a new alias (automatically validates the target path; alias names
                support letters, numbers, and underscores)
     2. remove - Remove an existing alias (also removes the corresponding global function)
-    3. search - Search aliases (supports fuzzy matching; keeps aligned console output and also returns structured objects)
+    3. search - Search aliases (supports fuzzy matching and returns structured objects)
     4. update - Reload all aliases from the YAML file into global functions
 
 .PARAMETER Action
@@ -90,8 +90,8 @@ function Use-ShortcutAlias {
        <ModuleRoot>\shortcout_aliases.yaml
     2. Each alias is implemented as a global function and can be invoked directly
        from PowerShell.
-    3. Module version: 0.1.1
-    4. Compatible with PowerShell 5.1 and 7+.
+    3. Module version: 0.1.2
+    4. Compatible with Windows PowerShell 5.1 and PowerShell 7+.
        Requires the powershell-yaml module:
        Install-Module powershell-yaml -Scope CurrentUser -Force
 

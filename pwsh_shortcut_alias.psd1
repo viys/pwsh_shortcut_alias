@@ -1,15 +1,15 @@
 @{
-    # 核心模块配置
+    # Core module settings
     RootModule        = 'pwsh_shortcut_alias.psm1'
-    ModuleVersion     = '0.1.1'
+    ModuleVersion     = '0.1.2'
     GUID              = 'e3b6c7c0-4b7e-4f1c-9e91-4b7e4f1c9e91'
 
-    # 作者/版权信息
+    # Author and copyright information
     Author            = 'Jiyon Yu'
     CompanyName       = 'Community'
     Copyright         = '(c) 2025 Jiyon Yu. All rights reserved.'
 
-    # 描述
+    # Description
     Description       = @'
 A PowerShell module for managing global shortcut aliases backed by a YAML file.
 Features:
@@ -19,17 +19,17 @@ Features:
 - Support fuzzy search for aliases
 '@
 
-    # 兼容版本
+    # Compatibility
     PowerShellVersion = '5.1'
     CompatiblePSEditions = @('Desktop', 'Core')
 
-    # 导出配置
+    # Exported members
     FunctionsToExport = @('Use-ShortcutAlias')
     CmdletsToExport   = @()
     VariablesToExport = @()
     AliasesToExport   = @('usa')
 
-    # 模块依赖
+    # Module dependencies
     RequiredModules = @(
         @{
             ModuleName = 'powershell-yaml'

@@ -35,7 +35,7 @@ Use-ShortcutAlias update 6> $null
 # --------------------------
 # Helper Functions
 # --------------------------
-# 辅助函数：统一计算安装与卸载过程中会复用的路径，避免主流程重复拼接
+# Helper: centralize the reusable paths shared by install and uninstall flows
 function Get-ShortcutAliasInstallPaths {
     [CmdletBinding()]
     param ()
@@ -53,7 +53,7 @@ function Get-ShortcutAliasInstallPaths {
     }
 }
 
-# 辅助函数：统一准备 profile 与模块目录，收拢安装前置环境检查
+# Helper: prepare the profile and module directories before install or uninstall
 function Initialize-ShortcutAliasEnvironment {
     [CmdletBinding()]
     param (
@@ -128,7 +128,7 @@ function Install-RequiredModule {
     }
 }
 
-# 辅助函数：统一按白名单复制模块发布内容，避免把仓库内的无关文件打进安装目录或发布包
+# Helper: copy only the files that belong in the install or publish layout
 function Copy-ShortcutAliasPackageContent {
     [CmdletBinding()]
     param (
@@ -156,7 +156,7 @@ function Copy-ShortcutAliasPackageContent {
     }
 }
 
-# 辅助函数：统一部署模块文件并完成导入校验，避免安装主流程堆叠过多细节
+# Helper: deploy the module files and validate import in one place
 function Install-ShortcutAliasModule {
     [CmdletBinding()]
     param (
@@ -192,7 +192,7 @@ function Update-ProfileContent {
         [string]$EndMarker
     )
 
-    # Profile directory must exist (created earlier in install)
+    # The profile directory should already exist from the earlier environment setup
     $profileDir = Split-Path $PROFILE -Parent
     if (-not (Test-Path $profileDir)) {
         Write-Error "❌ Invalid profile directory: $profileDir"
@@ -236,7 +236,12 @@ function Update-ProfileContent {
     }
 
     try {
-        Set-Content -Path $PROFILE -Value $profileContent -Encoding UTF8NoBOM -Force
+        if ($PSVersionTable.PSVersion.Major -ge 6) {
+            Set-Content -Path $PROFILE -Value $profileContent -Encoding UTF8NoBOM -Force
+        }
+        else {
+            Set-Content -Path $PROFILE -Value $profileContent -Encoding UTF8 -Force
+        }
         Write-Host "✅ Profile updated successfully" -ForegroundColor Green
         return $true
     }
@@ -246,7 +251,7 @@ function Update-ProfileContent {
     }
 }
 
-# 辅助函数：统一执行卸载清理，保持卸载主流程聚焦在步骤编排
+# Helper: perform uninstall cleanup while keeping the main flow focused on orchestration
 function Uninstall-ShortcutAliasModule {
     [CmdletBinding()]
     param (
@@ -285,7 +290,7 @@ try {
 
             Install-ShortcutAliasModule -Paths $paths
 
-            # Update profile
+            # Update the PowerShell profile
             Write-Host "📝 Updating PowerShell profile" -ForegroundColor Cyan
             if (-not (Update-ProfileContent -Operation add `
                     -Content $ProfileContent `

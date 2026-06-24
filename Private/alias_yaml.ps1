@@ -4,7 +4,7 @@
 #   wechat:
 #     path: "C:\Program Files (x86)\Tencent\WeChat\WeChat.exe"
 
-# 全局模块导入
+# Import the YAML module if its commands are not already available
 if (-not (Get-Command ConvertFrom-Yaml -ErrorAction SilentlyContinue)) {
     try {
         Import-Module powershell-yaml -ErrorAction Stop
@@ -45,7 +45,7 @@ function Read-AliasYaml {
     }
 
     try {
-        # 保留：-Ordered 保证读取有序
+        # Keep -Ordered so the read result preserves key order
         $data = Get-Content $Path -Raw | ConvertFrom-Yaml -Ordered
     }
     catch {
@@ -60,7 +60,7 @@ function Read-AliasYaml {
 
     foreach ($name in $data.aliases.Keys) {
         $entry = $data.aliases[$name]
-        # 防御性判断：避免 $entry 为空导致报错
+        # Defensive guard in case an entry is missing or malformed
         if ($entry -and $entry.path) {
             $result[$name] = $entry.path
         }
@@ -78,14 +78,14 @@ function Write-AliasYaml {
         [string]$Path
     )
 
-    # 构建「按 Key 升序排列」的有序哈希表
+    # Build an ordered hashtable whose nested keys are sorted ascending
     $sortedOrderedData = [ordered]@{}
     foreach ($topKey in $Data.Keys) {
         $topValue = $Data[$topKey]
 
         if ($topValue -is [hashtable] -or $topValue -is [System.Collections.Specialized.OrderedDictionary]) {
             $sortedAlias = [ordered]@{}
-            # 按别名 Key 升序排序
+            # Sort alias keys in ascending order before writing them back
             $topValue.GetEnumerator() | Sort-Object -Property Key | ForEach-Object {
                 $sortedAlias[$_.Key] = $_.Value
             }
@@ -96,7 +96,7 @@ function Write-AliasYaml {
         }
     }
 
-    # 保留：无 -Ordered，依赖有序哈希表保序
+    # No -Ordered switch here; rely on the ordered hashtable to preserve output order
     try {
         $sortedOrderedData | ConvertTo-Yaml | Set-Content -Path $Path -Encoding UTF8 -Force
         Write-Verbose "Successfully wrote to YAML configuration file: $Path"
@@ -106,7 +106,7 @@ function Write-AliasYaml {
     }
 }
 
-# 私有通用函数：统一读取可写入的 YAML 文档，确保 aliases 节点始终存在
+# Private helper: read a writable YAML document and ensure the aliases node always exists
 function Read-AliasYamlDocument {
     param (
         [Parameter(Mandatory)]
@@ -146,12 +146,12 @@ function Add-AliasPath {
 
     $data = Read-AliasYamlDocument -Path $Path
 
-    # 将 $AliasName 映射到 $ShortcutPath，存入 aliases 节点下
+    # Store the alias under the aliases node using the normalized path
     $data.aliases[$AliasName] = [ordered]@{
         path = $ShortcutPath
     }
 
-    # 写入文件
+    # Persist the updated document
     Write-AliasYaml -Data $data -Path $Path
 }
 
@@ -164,7 +164,7 @@ function Remove-AliasPath {
         [string]$AliasName
     )
 
-    # 检查文件是否存在
+    # Exit early if the configuration file does not exist
     if (-not (Test-Path $Path)) {
         Write-Verbose "Configuration file does not exist: $Path, no need to remove alias"
         return $false
@@ -172,18 +172,18 @@ function Remove-AliasPath {
 
     $data = Read-AliasYamlDocument -Path $Path
 
-    # 检查别名是否存在
+    # Check whether the alias exists in the current document
     $aliasExists = $false
     if ($data.aliases -is [System.Collections.Specialized.OrderedDictionary]) {
-        # 有序哈希表：用Contains方法
+        # OrderedDictionary uses Contains
         $aliasExists = $data.aliases.Contains($AliasName)
     }
     elseif ($data.aliases -is [hashtable]) {
-        # 普通哈希表：用ContainsKey方法
+        # Hashtable uses ContainsKey
         $aliasExists = $data.aliases.ContainsKey($AliasName)
     }
 
-    # 执行删除
+    # Remove and persist only when the alias exists
     if ($aliasExists) {
         $data.aliases.Remove($AliasName) | Out-Null
         Write-AliasYaml -Data $data -Path $Path

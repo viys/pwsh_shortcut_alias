@@ -4,6 +4,7 @@
 `pwsh_shortcut_alias` is a PowerShell module for managing shortcut aliases backed by a YAML file. It lets you register short commands for local programs, `.lnk` shortcuts, scripts, and URLs, then launch them from any PowerShell session after a refresh.
 
 Project Repository: [pwsh_shortcut_alias](https://github.com/viys/pwsh_shortcut_alias)
+PowerShell Gallery: [pwsh_shortcut_alias](https://www.powershellgallery.com/packages/pwsh_shortcut_alias/)
 
 ## Why Use It
 - Create shortcut aliases for frequently used programs or scripts
@@ -15,14 +16,17 @@ Project Repository: [pwsh_shortcut_alias](https://github.com/viys/pwsh_shortcut_
 
 ## Installation
 ### From PowerShell Gallery
-```powershell
-Install-PSResource -Name pwsh_shortcut_alias
-```
 
-Or with PowerShellGet:
+For the broadest compatibility, especially on Windows PowerShell 5.1, use:
 
 ```powershell
 Install-Module -Name pwsh_shortcut_alias
+```
+
+If you already use PSResourceGet, you can also install with:
+
+```powershell
+Install-PSResource -Name pwsh_shortcut_alias
 ```
 
 If `PSGallery` is not registered:
@@ -130,7 +134,9 @@ aliases:
 - Alias names must be unique
 - Run `Use-ShortcutAlias update` after adding or removing aliases before using them as commands
 - `Use-ShortcutAlias search` returns objects with `Name`, `Path`, and `IsUrl`
-- The module depends on `powershell-yaml`, which is installed automatically when using PSGallery
+- The module is compatible with Windows PowerShell 5.1 and PowerShell 7+
+- The module depends on `powershell-yaml` version `0.4.1` or later
+- `Install-Module` installs the dependency automatically; the current Gallery release of `powershell-yaml` still supports Windows PowerShell 5.0+, so it does not reduce this module's effective compatibility
 
 ## Troubleshooting
 

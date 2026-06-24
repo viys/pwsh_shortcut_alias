@@ -1,10 +1,10 @@
 $ModuleRoot = $PSScriptRoot
 $YamlCfgPath = Join-Path $ModuleRoot 'shortcout_aliases.yaml'
 
-# 加载私有实现
+# Load private implementation helpers
 . "$ModuleRoot\Private\alias_yaml.ps1"
 
-# 模块作用域启动入口：默认指向真实启动逻辑，测试时可在模块上下文内临时替换
+# Module-scope launch entry point. Tests can temporarily replace this script block.
 $script:ShortcutAliasLaunchInvoker = {
     param (
         [Parameter(Mandatory)]
@@ -14,7 +14,7 @@ $script:ShortcutAliasLaunchInvoker = {
     Invoke-ShortcutAliasLaunch -Target $Target
 }
 
-# 私有通用函数：判断键是否存在（兼容OrderedDictionary/Hashtable）
+# Private helper: check whether a key exists in either OrderedDictionary or Hashtable
 function Test-AliasKeyExists {
     [CmdletBinding()]
     param (
@@ -35,7 +35,7 @@ function Test-AliasKeyExists {
     }
 }
 
-# 私有通用函数：统一解析别名目标，收敛 URL/本地路径判断和路径规范化规则
+# Private helper: resolve alias targets and centralize URL and local path normalization
 function Resolve-ShortcutAliasTarget {
     [CmdletBinding()]
     param (
@@ -74,7 +74,7 @@ function Resolve-ShortcutAliasTarget {
     }
 }
 
-# 私有通用函数：统一把 YAML 中的别名数据转换为阶段一约定的数据结构
+# Private helper: convert YAML alias data into the shared runtime entry shape
 function Get-ShortcutAliasRegistryEntries {
     [CmdletBinding()]
     param ()
@@ -87,7 +87,7 @@ function Get-ShortcutAliasRegistryEntries {
     return @($entries)
 }
 
-# 私有通用函数：集中封装快捷别名的真实启动行为，避免系统调用散落在注册逻辑中
+# Private helper: isolate the actual alias launch behavior from registration logic
 function Invoke-ShortcutAliasLaunch {
     [CmdletBinding()]
     param (
@@ -98,7 +98,7 @@ function Invoke-ShortcutAliasLaunch {
     Start-Process explorer.exe $Target
 }
 
-# 私有通用函数：统一构建搜索结果，分离搜索匹配和控制台展示职责
+# Private helper: build search results separately from any console presentation concerns
 function Get-ShortcutAliasSearchResults {
     [CmdletBinding()]
     param (
@@ -114,7 +114,7 @@ function Get-ShortcutAliasSearchResults {
 
 function Use-ShortcutAlias {
     [CmdletBinding(DefaultParameterSetName = "Default")]
-    [Alias("usa")] # 添加别名，方便快速调用
+    [Alias("usa")] # Short alias for interactive use
     param (
         [Parameter(Position = 0, Mandatory)]
         [ValidateSet("add", "remove", "search", "update")]
@@ -133,7 +133,7 @@ function Use-ShortcutAlias {
             catch {
                 return $false
             }
-        })] # 提前验证路径存在
+        })] # Validate the target early
         [string]$ShortcutPath
     )
 
@@ -190,7 +190,7 @@ function Remove-ShortcutAlias {
             return
         }
 
-        # 同步移除全局函数
+        # Remove the corresponding global function as well
         $funcPath = "Function:\Global:$AliasName"
         if (Test-Path $funcPath) {
             Remove-Item -Path $funcPath -ErrorAction Stop
@@ -208,7 +208,7 @@ function Search-ShortcutAlias {
     [CmdletBinding()]
     param (
         [Parameter(Position = 0)]
-        [string]$AliasName = "*" # 默认模糊匹配所有
+        [string]$AliasName = "*" # Fuzzy match everything by default
     )
 
     $searchResults = Get-ShortcutAliasSearchResults -AliasName $AliasName
@@ -237,7 +237,7 @@ function Update-ShortcutAlias {
         $name = $entry.Name
         $target = $entry.Path
 
-        # 只有非 URL 才做路径存在检查
+        # Only validate local path existence for non-URL targets
         if (-not $entry.IsUrl -and -not (Test-Path $target)) {
             Write-Warning "Target path not found for alias '$name': $target"
             continue
