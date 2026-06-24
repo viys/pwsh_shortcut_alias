@@ -5,9 +5,9 @@
     GUID              = 'e3b6c7c0-4b7e-4f1c-9e91-4b7e4f1c9e91'
 
     # 作者/版权信息
-    Author            = 'viys'
+    Author            = 'Jiyon Yu'
     CompanyName       = 'Community'
-    Copyright         = '(c) 2025 viys. All rights reserved.'
+    Copyright         = '(c) 2025 Jiyon Yu. All rights reserved.'
 
     # 描述
     Description       = @'
