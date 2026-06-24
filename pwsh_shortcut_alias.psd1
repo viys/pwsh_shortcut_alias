@@ -16,7 +16,7 @@ Features:
 - Create/delete/search/update aliases for programs/scripts
 - Persist alias data in YAML format (cross-session persistence)
 - Auto-generate global PowerShell functions for quick access
-- Support fuzzy search and formatted output for aliases
+- Support fuzzy search for aliases
 '@
 
     # 兼容版本
@@ -36,4 +36,21 @@ Features:
             ModuleVersion = '0.4.1'
         }
     )
+
+    PrivateData = @{
+        PSData = @{
+            Tags = @(
+                'PowerShell'
+                'Alias'
+                'Shortcut'
+                'YAML'
+                'PSEdition_Desktop'
+                'PSEdition_Core'
+                'Windows'
+            )
+            LicenseUri = 'https://github.com/viys/pwsh_shortcut_alias/blob/main/LICENSE'
+            ProjectUri = 'https://github.com/viys/pwsh_shortcut_alias'
+            ReleaseNotes = 'Initial public release.'
+        }
+    }
 }
