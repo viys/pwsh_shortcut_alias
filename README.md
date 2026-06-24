@@ -1,39 +1,46 @@
 # pwsh_shortcut_alias
 **Read this in other languages: [English](README.md), [中文](README_zh.md).**
 
-`pwsh_shortcut_alias` is a PowerShell module designed for managing shortcut aliases. With this module, you can easily create aliases for frequently used programs or scripts, launch the corresponding programs quickly via aliases, and it supports **add, delete, search, and update** operations.
+`pwsh_shortcut_alias` is a PowerShell module for managing shortcut aliases backed by a YAML file. It lets you register short commands for local programs, `.lnk` shortcuts, scripts, and URLs, then launch them from any PowerShell session after a refresh.
 
 Project Repository: [pwsh_shortcut_alias](https://github.com/viys/pwsh_shortcut_alias)
 
-## Features
+## Why Use It
 - Create shortcut aliases for frequently used programs or scripts
-- Support alias addition, deletion, fuzzy search, and update
-- Search keeps the current aligned console output and also returns structured objects
-- Alias information is stored in a YAML file, enabling cross-session usage of the module
-- One-click update of all aliases, which are automatically registered as global functions
-- Compatible with PowerShell 7+, relying on the `powershell-yaml` module for YAML file parsing
+- Support alias add, remove, fuzzy search, and refresh operations
+- Return structured PowerShell objects from search for pipeline and scripting use
+- Persist alias data in YAML for cross-session usage
+- Register aliases as global functions with one refresh command
+- Support both Windows PowerShell 5.1 and PowerShell 7+
 
 ## Installation
-### Automatic Installation
-- Install
+### From PowerShell Gallery
 ```powershell
-./build.ps1 install
-```
-- Uninstall
-```powershell
-./build.ps1 uninstall
+Install-PSResource -Name pwsh_shortcut_alias
 ```
 
-### Manual Installation
-1. Copy the module folder `pwsh_shortcut_alias` to the PowerShell module directory. For example:
+Or with PowerShellGet:
+
 ```powershell
-Copy-Item -Path .\pwsh_shortcut_alias -Destination "$HOME\Documents\PowerShell\Modules\" -Recurse -Force
+Install-Module -Name pwsh_shortcut_alias
+```
+
+If `PSGallery` is not registered:
+
+```powershell
+Register-PSRepository -Default
+```
+
+### Local Install From Source
+1. Copy the module folder `pwsh_short_alias` to the PowerShell module directory. For example:
+```powershell
+Copy-Item -Path .\pwsh_short_alias -Destination "$HOME\Documents\PowerShell\Modules\" -Recurse -Force
 ```
 2. Import the module:
 ```powershell
 Import-Module pwsh_shortcut_alias -Force
 ```
-3. Add the following to your PowerShell profile and use notepad $PROFILE to edit it quickly:
+3. Add the following to your PowerShell profile:
 ```powershell
 ### pwsh_shortcut_alias_start
 if (-not (Get-Command Use-ShortcutAlias -ErrorAction SilentlyContinue)) {
@@ -44,92 +51,143 @@ Use-ShortcutAlias update 6> $null
 ### pwsh_shortcut_alias_end
 ```
 
-## Usage
+## Quick Start
 
 > The alias for Use-ShortcutAlias is usa.
 
-### Add Aliases
+Add a local shortcut:
+
 ```powershell
 Use-ShortcutAlias add edge "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Microsoft Edge.lnk"
-Use-ShortcutAlias add typora "C:\Program Files\Typora\Typora.exe"
 ```
 
-### Remove Aliases
+Add a URL shortcut:
+
 ```powershell
-Use-ShortcutAlias remove edge
+Use-ShortcutAlias add chatgpt "https://chatgpt.com/"
 ```
 
-### Search Aliases (Fuzzy Search)
-```powershell
-Use-ShortcutAlias search ed
-```
+Refresh exported global functions:
 
-### Search Aliases In Scripts
-```powershell
-Use-ShortcutAlias search ed | Select-Object Name, Path, IsUrl
-```
-
-### Update All Aliases
 ```powershell
 Use-ShortcutAlias update
 ```
 
-### Launch Programs via Aliases
+Launch by alias:
+
 ```powershell
 edge
-typora
+chatgpt
+```
+
+## Commands
+
+### Add aliases
+
+```powershell
+Use-ShortcutAlias add typora "C:\Program Files\Typora\Typora.exe"
+Use-ShortcutAlias add vscode "C:\Program Files\Microsoft VS Code\Code.exe"
+```
+
+### Remove aliases
+
+```powershell
+Use-ShortcutAlias remove typora
+```
+
+### Search aliases
+
+```powershell
+Use-ShortcutAlias search code
+```
+
+### Search aliases in scripts
+
+```powershell
+Use-ShortcutAlias search code | Select-Object Name, Path, IsUrl
+```
+
+### Refresh all aliases
+
+```powershell
+Use-ShortcutAlias update
 ```
 
 ## Configuration File
-- The module automatically generates a `shortcout_aliases.yaml` file to store alias information upon first use:
+
+The module creates `shortcout_aliases.yaml` on first use and stores alias definitions there:
+
 ```yaml
 aliases:
   edge:
     path: "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Microsoft Edge.lnk"
-  typora:
-    path: "C:\Program Files\Typora\Typora.exe"
+  chatgpt:
+    path: "https://chatgpt.com/"
 ```
 
-## Dependencies
-- PowerShell 7+ or Windows PowerShell
-- `powershell-yaml` module:
-```powershell
-Install-Module powershell-yaml -Scope CurrentUser
-```
+## Notes
+
+- Alias names must be unique
+- Run `Use-ShortcutAlias update` after adding or removing aliases before using them as commands
+- `Use-ShortcutAlias search` returns objects with `Name`, `Path`, and `IsUrl`
+- The module depends on `powershell-yaml`, which is installed automatically when using PSGallery
 
 ## Troubleshooting
 
-### PSGallery Repository Not Found
-If you see this error during installation: `WARNING: Repository PSGallery not found`
+### PSGallery repository not found
 
-Run the following command and try again:
+If installation reports `WARNING: Repository PSGallery not found`, run:
 
 ```powershell
 Register-PSRepository -Default
 ```
 
-## Notes
-- Alias names must be unique
-- `Use-ShortcutAlias update` registers all aliases in the YAML file as global functions
-- Ensure `Use-ShortcutAlias update` is executed before using aliases, otherwise the corresponding functions may not be registered
-- `Use-ShortcutAlias search` keeps the console display and also returns objects with `Name`, `Path`, and `IsUrl`
+### Alias command is not available
+
+If an alias exists in YAML but its command is unavailable in the current session, run:
+
+```powershell
+Use-ShortcutAlias update
+```
 
 ## Examples
+
 ```powershell
-# Add an alias
-Use-ShortcutAlias add vscode "C:\Program Files\Microsoft VS Code\Code.exe"
+# Add an alias for a desktop app
+Use-ShortcutAlias add wechat "C:\Program Files\Tencent\WeChat\WeChat.exe"
 
-# Launch the program via alias
-vscode
+# Add an alias for a web app
+Use-ShortcutAlias add yuque "https://www.yuque.com/"
 
-# Remove an alias
-Use-ShortcutAlias remove vscode
+# Rebuild exported functions
+Use-ShortcutAlias update
 
-# Search for aliases
-Use-ShortcutAlias search co
+# Launch targets
+wechat
+yuque
 
-# Search for aliases in scripts
-Use-ShortcutAlias search co | Select-Object Name, Path, IsUrl
+# Search for aliases in a script-friendly way
+Use-ShortcutAlias search we | Select-Object Name, Path, IsUrl
+```
+
+## Development Helpers
+
+Install from the working tree with the helper script:
+
+```powershell
+./build.ps1 install
+```
+
+Uninstall with:
+
+```powershell
+./build.ps1 uninstall
+```
+
+Generate a clean publish layout for PSGallery with:
+
+```powershell
+./build.ps1 stage
 ```
 
 ## License

@@ -9,7 +9,7 @@
 
 param (
     [Parameter(Position = 0, Mandatory)]
-    [ValidateSet("install", "uninstall")]
+    [ValidateSet("install", "uninstall", "stage")]
     [string]$Action
 )
 
@@ -17,6 +17,7 @@ param (
 # Constant Definitions
 # --------------------------
 $ModuleName = "pwsh_shortcut_alias"
+$StageDirectoryName = "pwsh_short_alias"
 $RequiredModules = @('powershell-yaml')
 $ProfileMarkerStart = "### pwsh_shortcut_alias_start"
 $ProfileMarkerEnd   = "### pwsh_shortcut_alias_end"
@@ -127,6 +128,34 @@ function Install-RequiredModule {
     }
 }
 
+# 辅助函数：统一按白名单复制模块发布内容，避免把仓库内的无关文件打进安装目录或发布包
+function Copy-ShortcutAliasPackageContent {
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory)]
+        [string]$DestinationPath
+    )
+
+    $itemsToCopy = @(
+        'pwsh_shortcut_alias.psd1',
+        'pwsh_shortcut_alias.psm1',
+        'Private',
+        'LICENSE',
+        'README.md',
+        'README_zh.md'
+    )
+
+    if (Test-Path $DestinationPath) {
+        Remove-Item -Path $DestinationPath -Recurse -Force -ErrorAction Stop
+    }
+
+    New-Item -ItemType Directory -Path $DestinationPath -Force | Out-Null
+
+    foreach ($item in $itemsToCopy) {
+        Copy-Item -Path (Join-Path $PSScriptRoot $item) -Destination $DestinationPath -Recurse -Force -ErrorAction Stop
+    }
+}
+
 # 辅助函数：统一部署模块文件并完成导入校验，避免安装主流程堆叠过多细节
 function Install-ShortcutAliasModule {
     [CmdletBinding()]
@@ -135,13 +164,10 @@ function Install-ShortcutAliasModule {
         [object]$Paths
     )
 
-    $excludeItems = @('.git', '.gitignore', 'shortcut_aliases.yaml', 'build.ps1', 'LICENSE', 'README.md')
-
-    New-Item -ItemType Directory -Path $Paths.ModuleDir -Force | Out-Null
     Write-Host "📂 Module destination: $($Paths.ModuleDir)" -ForegroundColor Gray
 
     Write-Host "📤 Copying module files..." -ForegroundColor Cyan
-    Copy-Item -Path ".\*" -Destination $Paths.ModuleDir -Recurse -Force -Exclude $excludeItems
+    Copy-ShortcutAliasPackageContent -DestinationPath $Paths.ModuleDir
 
     if (Get-Module $ModuleName -ErrorAction SilentlyContinue) {
         Remove-Module $ModuleName -Force -ErrorAction SilentlyContinue
@@ -291,6 +317,15 @@ try {
 
             Write-Host "`n✅ $ModuleName uninstalled successfully!" -ForegroundColor Green
             Write-Host "💡 Restart PowerShell to apply changes`n" -ForegroundColor Yellow
+        }
+
+        "stage" {
+            $stageDirectory = Join-Path $PSScriptRoot $StageDirectoryName
+
+            Write-Host "`n📦 Generating publish layout for $ModuleName`n" -ForegroundColor Cyan
+            Copy-ShortcutAliasPackageContent -DestinationPath $stageDirectory
+            Write-Host "✅ Publish layout is ready: $stageDirectory" -ForegroundColor Green
+            Write-Host "💡 Publish with: Publish-PSResource -Path `"$stageDirectory`" -Repository PSGallery -ApiKey <key>" -ForegroundColor Yellow
         }
     }
 }

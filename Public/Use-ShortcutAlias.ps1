@@ -90,7 +90,7 @@ function Use-ShortcutAlias {
        <ModuleRoot>\shortcout_aliases.yaml
     2. Each alias is implemented as a global function and can be invoked directly
        from PowerShell.
-    3. Module version: 0.1.0
+    3. Module version: 0.1.1
     4. Compatible with PowerShell 5.1 and 7+.
        Requires the powershell-yaml module:
        Install-Module powershell-yaml -Scope CurrentUser -Force

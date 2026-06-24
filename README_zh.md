@@ -2,41 +2,45 @@
 
 **Read this in other languages: [English](README.md), [中文](README_zh.md).**
 
-`pwsh_shortcut_alias` 是一个 PowerShell 模块，用于管理快捷方式别名。通过该模块，你可以轻松为常用程序或脚本创建别名，通过别名快速启动对应程序，并支持添加、删除、搜索和更新操作。
+`pwsh_shortcut_alias` 是一个基于 YAML 存储的 PowerShell 快捷方式别名模块。它可以为本地程序、`.lnk` 快捷方式、脚本和 URL 注册短命令，并在刷新后从任意 PowerShell 会话里直接启动对应目标。
 
 项目地址：[pwsh_shortcut_alias](https://github.com/viys/pwsh_shortcut_alias)
 
-## 功能特点
+## 为什么使用它
 
-* 为常用程序或脚本创建快捷方式别名
-* 支持别名添加、删除、搜索（模糊搜索）和更新
-* 搜索保留当前控制台对齐输出，同时也会返回结构化对象
-* 别名信息存储在 YAML 文件中，模块可跨会话使用
-* 一键更新所有别名，自动注册为全局函数
-* 支持 PowerShell 7+，依赖 `powershell-yaml` 模块解析 YAML 文件
+- 为常用程序或脚本创建快捷方式别名
+- 支持别名添加、删除、模糊搜索和刷新
+- 搜索返回结构化 PowerShell 对象，便于管道和脚本消费
+- 别名数据持久化到 YAML，跨会话可复用
+- 通过一次刷新命令把别名注册为全局函数
+- 同时支持 Windows PowerShell 5.1 和 PowerShell 7+
 
 ## 安装
 
-### 自动化安装
-
-- 安装
+### 从 PowerShell Gallery 安装
 
 ```powershell
-./build.ps1 install
+Install-PSResource -Name pwsh_shortcut_alias
 ```
 
-- 卸载
+或者使用 PowerShellGet：
 
 ```powershell
-./build.ps1 uninstall
+Install-Module -Name pwsh_shortcut_alias
 ```
 
-### 手动安装
-
-1. 将模块文件夹 `pwsh_shortcut_alias` 复制到 PowerShell 模块目录，例如：
+如果本机还没有注册 `PSGallery`：
 
 ```powershell
-Copy-Item -Path .\pwsh_shortcut_alias -Destination "$HOME\Documents\PowerShell\Modules\" -Recurse -Force
+Register-PSRepository -Default
+```
+
+### 从源码本地安装
+
+1. 将模块文件夹 `pwsh_short_alias` 复制到 PowerShell 模块目录，例如：
+
+```powershell
+Copy-Item -Path .\pwsh_short_alias -Destination "$HOME\Documents\PowerShell\Modules\" -Recurse -Force
 ```
 
 2. 导入模块：
@@ -45,7 +49,7 @@ Copy-Item -Path .\pwsh_shortcut_alias -Destination "$HOME\Documents\PowerShell\M
 Import-Module pwsh_shortcut_alias -Force
 ```
 
-3. 在 PowerShell profile 添加如下内容，使用 notepad $PROFILE 快速编辑：
+3. 在 PowerShell profile 添加如下内容：
 
 ```powershell
 ### pwsh_shortcut_alias_start
@@ -57,105 +61,143 @@ Use-ShortcutAlias update 6> $null
 ### pwsh_shortcut_alias_end
 ```
 
-## 使用方法
+## 快速开始
 
-> Use-ShortcutAlias 的别名为 usa。
+> `Use-ShortcutAlias` 的别名是 `usa`。
 
-### 添加别名
+添加本地快捷方式：
 
 ```powershell
 Use-ShortcutAlias add edge "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Microsoft Edge.lnk"
-Use-ShortcutAlias add typora "C:\Program Files\Typora\Typora.exe"
 ```
 
-### 删除别名
+添加 URL 快捷方式：
 
 ```powershell
-Use-ShortcutAlias remove edge
+Use-ShortcutAlias add chatgpt "https://chatgpt.com/"
 ```
 
-### 搜索别名（模糊搜索）
-
-```powershell
-Use-ShortcutAlias search ed
-```
-
-### 在脚本中消费搜索结果
-
-```powershell
-Use-ShortcutAlias search ed | Select-Object Name, Path, IsUrl
-```
-
-### 更新所有别名
+刷新导出的全局函数：
 
 ```powershell
 Use-ShortcutAlias update
 ```
 
-### 使用别名启动程序
+通过别名启动：
 
 ```powershell
 edge
-typora
+chatgpt
+```
+
+## 命令示例
+
+### 添加别名
+
+```powershell
+Use-ShortcutAlias add typora "C:\Program Files\Typora\Typora.exe"
+Use-ShortcutAlias add vscode "C:\Program Files\Microsoft VS Code\Code.exe"
+```
+
+### 删除别名
+
+```powershell
+Use-ShortcutAlias remove typora
+```
+
+### 搜索别名
+
+```powershell
+Use-ShortcutAlias search code
+```
+
+### 在脚本里消费搜索结果
+
+```powershell
+Use-ShortcutAlias search code | Select-Object Name, Path, IsUrl
+```
+
+### 刷新所有别名
+
+```powershell
+Use-ShortcutAlias update
 ```
 
 ## 配置文件
 
-* 模块在第一次使用时会自动生成 `shortcout_aliases.yaml` 文件，用于存储别名信息：
+模块首次使用时会自动生成 `shortcout_aliases.yaml`，并把别名定义保存进去：
 
 ```yaml
 aliases:
   edge:
     path: "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Microsoft Edge.lnk"
-  typora:
-    path: "C:\Program Files\Typora\Typora.exe"
+  chatgpt:
+    path: "https://chatgpt.com/"
 ```
 
-## 依赖
+## 注意事项
 
-* PowerShell 7+ 或 Windows PowerShell
-* `powershell-yaml` 模块：
-
-```powershell
-Install-Module powershell-yaml -Scope CurrentUser
-```
+- 别名名称必须唯一
+- 添加或删除别名后，需要执行 `Use-ShortcutAlias update`，再把它们当命令直接使用
+- `Use-ShortcutAlias search` 返回包含 `Name`、`Path`、`IsUrl` 的对象
+- 使用 PSGallery 安装时，`powershell-yaml` 依赖会自动安装
 
 ## 故障排除
 
-### PSGallery 仓库未找到
+### 找不到 PSGallery 仓库
 
-如果在安装过程中看到如下错误：`WARNING: Repository PSGallery not found`
-
-请执行以下命令后重新安装：
+如果安装时出现 `WARNING: Repository PSGallery not found`，执行：
 
 ```powershell
 Register-PSRepository -Default
 ```
 
-## 注意事项
+### 别名命令不可用
 
-* 别名名称必须唯一
-* `Use-ShortcutAlias update` 会将 YAML 文件中所有别名注册为全局函数
-* 使用别名前确保 `Use-ShortcutAlias update` 已执行，否则函数可能未注册
-* `Use-ShortcutAlias search` 保留控制台显示，同时也会返回包含 `Name`、`Path`、`IsUrl` 的对象
+如果 YAML 里已经有别名，但当前会话中命令不可用，执行：
+
+```powershell
+Use-ShortcutAlias update
+```
 
 ## 示例
 
 ```powershell
-# 添加别名
-Use-ShortcutAlias add vscode "C:\Program Files\Microsoft VS Code\Code.exe"
+# 为桌面应用添加别名
+Use-ShortcutAlias add wechat "C:\Program Files\Tencent\WeChat\WeChat.exe"
 
-# 使用别名启动程序
-vscode
+# 为网页应用添加别名
+Use-ShortcutAlias add yuque "https://www.yuque.com/"
 
-# 删除别名
-Use-ShortcutAlias remove vscode
+# 重建导出的函数
+Use-ShortcutAlias update
 
-# 搜索别名
-Use-ShortcutAlias search co
+# 启动目标
+wechat
+yuque
 
-# 在脚本中消费搜索结果
-Use-ShortcutAlias search co | Select-Object Name, Path, IsUrl
+# 以脚本友好的方式搜索
+Use-ShortcutAlias search we | Select-Object Name, Path, IsUrl
+```
+
+## 开发辅助
+
+从当前工作树安装：
+
+```powershell
+./build.ps1 install
+```
+
+卸载：
+
+```powershell
+./build.ps1 uninstall
+```
+
+生成用于 PSGallery 发布的干净目录：
+
+```powershell
+./build.ps1 stage
 ```
 
 ## 许可证
