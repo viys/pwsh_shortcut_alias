@@ -112,28 +112,6 @@ function Get-ShortcutAliasSearchResults {
     return @($entries)
 }
 
-# 私有通用函数：只负责把搜索结果转换为控制台对齐展示数据
-function Format-AliasOutput {
-    [CmdletBinding()]
-    param (
-        [Parameter(Mandatory)]
-        [object[]]$SearchResults
-    )
-
-    if (-not $SearchResults) { return $null }
-
-    $maxKeyLength = ($SearchResults.Name | Measure-Object -Property Length -Maximum).Maximum
-    foreach ($item in $SearchResults) {
-        $spaceCount = $maxKeyLength - $item.Name.Length + 2
-        [PSCustomObject]@{
-            Name    = $item.Name
-            Spaces  = " " * $spaceCount
-            Path    = $item.Path
-            MaxLength = $maxKeyLength
-        }
-    }
-}
-
 function Use-ShortcutAlias {
     [CmdletBinding(DefaultParameterSetName = "Default")]
     [Alias("usa")] # 添加别名，方便快速调用
@@ -238,15 +216,6 @@ function Search-ShortcutAlias {
     if (-not $searchResults) {
         Write-Host "No alias matching '$AliasName' found" -ForegroundColor Yellow
         return
-    }
-
-    $formattedOutput = Format-AliasOutput -SearchResults $searchResults
-
-    # 统一输出格式
-    foreach ($item in $formattedOutput) {
-        Write-Host "$($item.Name)$($item.Spaces)" -ForegroundColor Green -NoNewline
-        Write-Host "-> " -ForegroundColor DarkGray -NoNewline
-        Write-Host $item.Path
     }
 
     return $searchResults
